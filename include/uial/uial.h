@@ -21,6 +21,8 @@
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/Range.h>
+#include <std_msgs/Bool.h>
+#include <underwater_sensor_msgs/Pressure.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
 
@@ -35,8 +37,9 @@ public:
 
 private:
 	void leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped);
-//	void sensorPressureCallback(const sensor_msgs::FluidPressure::ConstPtr& posstamped);
+	void sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue);
 	void sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue);
+	void sensorContactCallback(const std_msgs::Bool::ConstPtr& contactValue);
 
 	ros::NodeHandle nh_;
 
@@ -48,11 +51,13 @@ private:
 
 	bool sensorPressureAlarm;
 	bool sensorRangeAlarm;
+	bool sensorContactAlarm;
 
 	ros::Publisher vel_pub_;
 	ros::Subscriber leap_sub_;
 	ros::Subscriber sensorPressure_sub_;
 	ros::Subscriber sensorRange_sub_;
+	ros::Subscriber contactRange_sub_;
 
 	tf::Transform transform_init, transform_new;
 	tf::StampedTransform transform;

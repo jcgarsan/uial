@@ -17,8 +17,8 @@
 #include <string.h>
 #include "../include/uial/uial.h"
 
-//#define TOPIC  "/dataNavigator_G500RAUVI"		//shipweck scene
-#define TOPIC  "/dataNavigator"				//CIRS scene
+#define TOPIC  "/dataNavigator_G500RAUVI"		//shipweck scene
+//#define TOPIC  "/dataNavigator"				//CIRS scene
 
 using namespace std;
 
@@ -38,16 +38,28 @@ Uial::Uial()
 	initOrientation[2] = 0;
 	initOrientation[3] = 0;
 	sensorRangeAlarm = false;
+	sensorPressureAlarm = false;
 
 	listener = new (tf::TransformListener);
 
 	//publisher and subscriber initialization
 	vel_pub_ = nh_.advertise<nav_msgs::Odometry>(TOPIC,1);
 	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
-	//sensorPressure_sub_ = nh_.subscribe<sensor_msgs::FluidPressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
+	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
+	contactRange_sub_ = nh_.subscribe<std_msgs::Bool>("g500/contactSensor", 1, &Uial::sensorContactCallback, this);
 }
 
+void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue)
+{
+	if (pressureValue->pressure < 0.2)
+	{
+		sensorPressureAlarm = true;
+		cout << "sensorPressureAlarm: the robot is on the surface. " << endl;
+	}
+	else
+		sensorPressureAlarm = false;
+}
 
 void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 {
@@ -59,6 +71,18 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 	else
 		sensorRangeAlarm = false;
 }
+
+void Uial::sensorContactCallback(const std_msgs::Bool::ConstPtr& contactValue)
+{
+	if (contactValue->data)
+	{
+		sensorContactAlarm = true;
+		cout << "sensorContactAlarm: the robot is bumping something." << endl;
+	}
+	else
+		sensorContactAlarm = false;
+}
+
 
 void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 {
@@ -138,7 +162,10 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 				else //The robot is close to the ground
 					currentPosition[1] = 0;
 			else
+				if (!sensorPressureAlarm)
 					currentPosition[1] = -0.2;
+				else //The robot is on the surface
+					currentPosition[1] = 0;
 			cout << " Z-Axis: " ;
 			(currentPosition[1] < 0 ? cout << " up |" : cout << " down |");
 		}

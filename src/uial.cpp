@@ -17,8 +17,8 @@
 #include <string.h>
 #include "../include/uial/uial.h"
 
-#define TOPIC  "/dataNavigator_G500RAUVI"		//shipweck scene
-//#define TOPIC  "/dataNavigator"				//CIRS scene
+//#define TOPIC  "/dataNavigator_G500RAUVI"		//shipweck scene
+#define TOPIC  "/dataNavigator"				//CIRS scene
 
 using namespace std;
 
@@ -39,6 +39,7 @@ Uial::Uial()
 	initOrientation[3] = 0;
 	sensorRangeAlarm = false;
 	sensorPressureAlarm = false;
+	sensorContactAlarm = false;
 
 	listener = new (tf::TransformListener);
 
@@ -47,7 +48,12 @@ Uial::Uial()
 	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
-	contactRange_sub_ = nh_.subscribe<std_msgs::Bool>("g500/contactSensor", 1, &Uial::sensorContactCallback, this);
+//	contactRange_sub_ = nh_.subscribe<std_msgs::Bool>("g500/contactSensor", 1, &Uial::sensorContactCallback, this);
+}
+
+Uial::~Uial()
+{
+	//Destructor
 }
 
 void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue)
@@ -72,7 +78,7 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 		sensorRangeAlarm = false;
 }
 
-void Uial::sensorContactCallback(const std_msgs::Bool::ConstPtr& contactValue)
+/*void Uial::sensorContactCallback(const std_msgs::Bool::ConstPtr& contactValue)
 {
 	if (contactValue->data)
 	{
@@ -81,7 +87,7 @@ void Uial::sensorContactCallback(const std_msgs::Bool::ConstPtr& contactValue)
 	}
 	else
 		sensorContactAlarm = false;
-}
+}*/
 
 
 void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
@@ -213,7 +219,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	odom.twist.twist.linear.z = currentPosition[1];
 	odom.twist.twist.angular.x = 0; //roll;
 	odom.twist.twist.angular.y = 0; //pitch;
-	odom.twist.twist.angular.z = 0; //currentOrientation[1]; //yaw
+	odom.twist.twist.angular.z = currentOrientation[1]; //yaw
 	for (int i=0; i<36; i++)
 	{
 		odom.twist.covariance[i]=0;

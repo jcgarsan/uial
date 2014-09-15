@@ -17,8 +17,13 @@
 #include <string.h>
 #include "../include/uial/uial.h"
 
-//#define TOPIC  "/dataNavigator_G500RAUVI"		//shipweck scene
-#define TOPIC  "/dataNavigator"				//CIRS scene
+#define TOPIC  "/dataNavigator_G500RAUVI"		//shipweck scene
+//#define TOPIC  "/dataNavigator"				//CIRS scene
+
+//#define CIRS_pressure 0.2
+//#define CIRS_range 0.6
+#define shipweck_pressure -1.0
+#define shipweck_range 1.2
 
 using namespace std;
 
@@ -58,7 +63,8 @@ Uial::~Uial()
 
 void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue)
 {
-	if (pressureValue->pressure < 0.2)
+	//if (pressureValue->pressure < CIRS_pressure)
+	if (pressureValue->pressure > shipweck_pressure)
 	{
 		sensorPressureAlarm = true;
 		cout << "sensorPressureAlarm: the robot is on the surface. " << endl;
@@ -69,7 +75,8 @@ void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstP
 
 void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 {
-	if (rangeValue->range < 0.6)
+	//if (rangeValue->range < CIRS_range)
+	if (rangeValue->range < shipweck_range)
 	{
 		sensorRangeAlarm = true;
 		cout << "rangeValueAlarm: the robot is close the ground." << endl;
@@ -151,7 +158,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			currentPosition[0] = 0.00;
 		else
 		{
-			currentPosition[0] = (currentPosition[0] < 0 ? -0.2 : 0.2);
+			currentPosition[0] = (currentPosition[0] < 0 ? -0.3 : 0.3);
 			cout << " Y-Axis: " ;
 			(currentPosition[0] < 0 ? cout << " left |" : cout << " right |");
 		}
@@ -164,12 +171,12 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			//currentPosition[1] = (currentPosition[1] < initPosition[1] ? 0.2 : -0.2);
 			if (currentPosition[1] < initPosition[1])
 				if (!sensorRangeAlarm)
-					currentPosition[1] = 0.2;
+					currentPosition[1] = 0.3;
 				else //The robot is close to the ground
 					currentPosition[1] = 0;
 			else
 				if (!sensorPressureAlarm)
-					currentPosition[1] = -0.2;
+					currentPosition[1] = -0.3;
 				else //The robot is on the surface
 					currentPosition[1] = 0;
 			cout << " Z-Axis: " ;
@@ -181,7 +188,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			currentPosition[2] = 0.00;
 		else
 		{
-			currentPosition[2] = (currentPosition[2] < 0 ? 0.2 : -0.2);
+			currentPosition[2] = (currentPosition[2] < 0 ? 0.3 : -0.3);
 			cout << " X-Axis: " ;
 			(currentPosition[2] < 0 ? cout << " back |" : cout << " front |");
 		}
@@ -219,7 +226,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	odom.twist.twist.linear.z = currentPosition[1];
 	odom.twist.twist.angular.x = 0; //roll;
 	odom.twist.twist.angular.y = 0; //pitch;
-	odom.twist.twist.angular.z = currentOrientation[1]; //yaw
+	odom.twist.twist.angular.z = currentOrientation[1]/3; //yaw
 	for (int i=0; i<36; i++)
 	{
 		odom.twist.covariance[i]=0;

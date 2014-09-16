@@ -43,7 +43,8 @@ Uial::Uial()
 
 	//publisher and subscriber initialization
 	vel_pub_ = nh_.advertise<nav_msgs::Odometry>(TOPIC,1);
-	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
+	hand_sub_ = nh_.subscribe<sensor_msgs::JointState>("leap_tracker/joint_state_out", 1, &Uial::leapHandCallback, this);
+	//leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
 }
@@ -69,6 +70,31 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 		sensorRangeAlarm = true;
 	else
 		sensorRangeAlarm = false;
+}
+
+void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
+{
+/*	cout << "index.meta  = " << jointstate->position[15] << " / " << jointstate->position[16] \
+							 << " / " << jointstate->position[17] << endl;
+	cout << "index.prox  = " << jointstate->position[18] << " / " << jointstate->position[19] \
+							 << " / " << jointstate->position[20] << endl;
+	cout << "index.mid  = " << jointstate->position[21] << " / " << jointstate->position[22] \
+							 << " / " << jointstate->position[23] << endl;
+	cout << "index.dist  = " << jointstate->position[24] << " / " << jointstate->position[25] \
+							 << " / " << jointstate->position[26] << endl; */
+
+
+	cout << "thumb.dist  = " << jointstate->position[12] << " / " << jointstate->position[13] \
+							 << " / " << jointstate->position[14] << endl;
+	cout << "index.dist  = " << jointstate->position[24] << " / " << jointstate->position[25] \
+							 << " / " << jointstate->position[26] << endl;
+	cout << "middle.dist = " << jointstate->position[36] << " / " << jointstate->position[37] \
+							 << " / " << jointstate->position[38] << endl;
+	cout << "ring.dist   = " << jointstate->position[48] << " / " << jointstate->position[49] \
+							 << " / " << jointstate->position[50] << endl;
+	cout << "pinky.dist  = " << jointstate->position[60] << " / " << jointstate->position[61] \
+							 << " / " << jointstate->position[62] << endl; 
+	cout << endl;
 }
 
 void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
@@ -180,12 +206,12 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			cout << " Yaw: " ;
 			if (posstamped->pose.position.x > 25.0)
 			{
-				currentPosition[0] = 0.3;
+				currentPosition[0] = 0.2;
 				cout << " clockwise |";
 			}
 			else
 			{
-				currentPosition[0] = -0.3;
+				currentPosition[0] = -0.2;
 				cout << " counterclockwise |";
 			}
 		}

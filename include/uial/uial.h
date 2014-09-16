@@ -20,6 +20,7 @@
 #include <ros/ros.h>
 #include <nav_msgs/Odometry.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <sensor_msgs/JointState.h>
 #include <sensor_msgs/Range.h>
 #include <std_msgs/Bool.h>
 #include <underwater_sensor_msgs/Pressure.h>
@@ -39,6 +40,7 @@ class Uial
 
 
 	private:
+		void leapHandCallback(const sensor_msgs::JointState::ConstPtr& posstamped);
 		void leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped);
 		void sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue);
 		void sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue);
@@ -49,6 +51,7 @@ class Uial
 		float previousPosition[3];
 
 		ros::Publisher vel_pub_;
+		ros::Subscriber hand_sub_;
 		ros::Subscriber leap_sub_;
 		ros::Subscriber sensorPressure_sub_;
 		ros::Subscriber sensorRange_sub_;

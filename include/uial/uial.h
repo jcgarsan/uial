@@ -23,8 +23,6 @@
 #include <sensor_msgs/Range.h>
 #include <std_msgs/Bool.h>
 #include <underwater_sensor_msgs/Pressure.h>
-#include <tf/transform_broadcaster.h>
-#include <tf/transform_listener.h>
 
 using namespace std;
 
@@ -38,34 +36,22 @@ class Uial
 
 		bool sensorPressureAlarm;
 		bool sensorRangeAlarm;
-		bool sensorContactAlarm;
 
 
 	private:
 		void leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped);
 		void sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue);
 		void sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue);
-		//void sensorContactCallback(const std_msgs::Bool::ConstPtr& contactValue);
 
 		ros::NodeHandle nh_;
 
-		float initPosition[3];
 		float currentPosition[3];
 		float previousPosition[3];
-		float initOrientation[4];
-		float currentOrientation[4];
 
 		ros::Publisher vel_pub_;
 		ros::Subscriber leap_sub_;
 		ros::Subscriber sensorPressure_sub_;
 		ros::Subscriber sensorRange_sub_;
-		ros::Subscriber contactRange_sub_;
-
-		tf::Transform transform_init, transform_new;
-		tf::StampedTransform transform;
-		tf::Quaternion q_init, q_new;
-		tf::TransformBroadcaster br;
-		tf::TransformListener *listener;	
 
 };
 

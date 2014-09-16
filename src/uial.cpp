@@ -32,21 +32,14 @@ using namespace std;
 Uial::Uial()
 {
 	//initializing values
-	initPosition[0] = 0;
-	initPosition[1] = 0;
-	initPosition[2] = 0;
+	currentPosition[0] = 0;
+	currentPosition[1] = 0;
+	currentPosition[2] = 0;
 	previousPosition[0] = 0;
 	previousPosition[1] = 0;
 	previousPosition[2] = 0;
-	initOrientation[0] = 0;
-	initOrientation[1] = 0;
-	initOrientation[2] = 0;
-	initOrientation[3] = 0;
 	sensorRangeAlarm = false;
 	sensorPressureAlarm = false;
-	sensorContactAlarm = false;
-
-	listener = new (tf::TransformListener);
 
 	//publisher and subscriber initialization
 	vel_pub_ = nh_.advertise<nav_msgs::Odometry>(TOPIC,1);
@@ -81,32 +74,7 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 {
 	int num;
-	double roll, pitch, yaw;
 	
-	//Initial user hand position
-	if ((initPosition[0] == 0) and (initPosition[1] == 0) and (initPosition[2] == 0))
-	{
-		initPosition[0] = posstamped->pose.position.x;
-		initPosition[1] = posstamped->pose.position.y;
-		initPosition[2] = posstamped->pose.position.z;
-		//Save initial hand orientation
-		initOrientation[0] = posstamped->pose.orientation.x;
-		initOrientation[1] = posstamped->pose.orientation.y;
-		initOrientation[2] = posstamped->pose.orientation.z;
-		initOrientation[3] = posstamped->pose.orientation.w;
-		//Set initial transform data
-		transform_init.setOrigin(tf::Vector3(initPosition[0], initPosition[1], initPosition[2]));
-		q_init = tf::Quaternion(posstamped->pose.orientation.x, posstamped->pose.orientation.y, \
-								posstamped->pose.orientation.z, posstamped->pose.orientation.w);
-		transform_init.setRotation(q_init.normalize());
-
-		cout << "Starting hand position: (" << initPosition[0] << "," << initPosition[1] \
-			 << "," << initPosition[2] << " :: " << initOrientation[1] << ")" << endl;
-		cout << "Press Enter to continue... ";
-		num = getchar();		
-	}
-	br.sendTransform(tf::StampedTransform(transform_init, ros::Time::now(), "world", "init_pose"));
-
 	//Keep all with 0. We send velocities, not position.
 	nav_msgs::Odometry odom;
 	odom.pose.pose.position.x=0.0;
@@ -123,7 +91,6 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	{
 		for (int i=0; i<3; i++)
 			currentPosition[i] = 0.00;
-		currentOrientation[1] = 0.00;
 	}
 	else
 	{
@@ -132,36 +99,9 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		previousPosition[1] = posstamped->pose.position.y;
 		previousPosition[2] = posstamped->pose.position.z;
 
-		//LeapMotion X-axis -> Robot Y-axis
 		cout << "Robot movement(s): ";
-		if ((posstamped->pose.position.x >= -15.0) and (posstamped->pose.position.x <= 15.0))
-			currentPosition[0] = 0.00;
-		else
-		{
-			cout << " Y-Axis: " ;
-			if ((posstamped->pose.position.x > -72.0) and (posstamped->pose.position.x < -15.0))
-			{
-				currentPosition[0] = -0.3;
-				cout << " left |";
-			}
-			if (posstamped->pose.position.x < -72.0)
-			{
-				currentPosition[0] = -0.6;
-				cout << " left 2x |";
-			}
-			if ((posstamped->pose.position.x < 72.0) and (posstamped->pose.position.x > 15.0))
-			{
-				currentPosition[0] = 0.3;
-				cout << " right |";
-			}
-			if (posstamped->pose.position.x > 72.0)
-			{
-				currentPosition[0] = 0.6;
-				cout << " right 2x |";
-			}
-		}
 		//LeapMotion Y-axis -> Robot Z-axis
-		if ((posstamped->pose.position.y >= 80) and (posstamped->pose.position.y <= 100))
+		if ((posstamped->pose.position.y >= 80) and (posstamped->pose.position.y <= 120))		//100 -> 120
 			currentPosition[1] = 0.00;
 		else
 		{
@@ -183,13 +123,13 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 						currentPosition[1] = 0.0;
 					}
 			else //User's hand is upper
-				if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 100) and (posstamped->pose.position.y <= 150))
+				if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 120) and (posstamped->pose.position.y <= 170))
 				{
 					currentPosition[1] = -0.3;
 					cout << " up |";
 				}
 				else
-					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 150))
+					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 170))
 					{
 						currentPosition[1] = -0.6;
 						cout << " up 2x |";
@@ -232,41 +172,32 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 							cout << " back 2x |";
 					}
 		}
-		//Y-orientation
-		transform_new.setOrigin(tf::Vector3(posstamped->pose.orientation.x, \
-								posstamped->pose.orientation.y, posstamped->pose.orientation.z));
-		q_new = tf::Quaternion(posstamped->pose.orientation.x, posstamped->pose.orientation.y, \
-								posstamped->pose.orientation.z, posstamped->pose.orientation.w);
-		transform_new.setRotation(q_new.normalize());
-		br.sendTransform(tf::StampedTransform(transform_new, ros::Time::now(), "world", "new_pose"));
-
-		try
-		{
-			listener->lookupTransform("/new_pose", "/init_pose", ros::Time(0), transform);
-		}
-		catch (tf::TransformException ex)
-		{
-			ROS_ERROR("%s",ex.what());
-			ros::Duration(1.0).sleep();
-		}
-		transform.getBasis().getRPY(roll, pitch, yaw);
-		if ((roll >= -0.1) and (roll <= 0.1))
-			currentOrientation[1] = 0.00;
+		//LeapMotion X-axis -> Robot Y-axis
+		if ((posstamped->pose.position.x >= -25.0) and (posstamped->pose.position.x <= 25.0))
+			currentPosition[0] = 0.00;
 		else
 		{
-			currentOrientation[1] = (roll < 0 ? -0.2 : 0.2);
 			cout << " Yaw: " ;
-			(roll < 0 ? cout << " left |" : cout << " right |");
+			if (posstamped->pose.position.x > 25.0)
+			{
+				currentPosition[0] = 0.3;
+				cout << " clockwise |";
+			}
+			else
+			{
+				currentPosition[0] = -0.3;
+				cout << " counterclockwise |";
+			}
 		}
 		cout << endl;
 	}
 	//Assign the calculated values into the publisher
-	odom.twist.twist.linear.x = currentPosition[2]; 
-	odom.twist.twist.linear.y = currentPosition[0];
-	odom.twist.twist.linear.z = currentPosition[1];
+	odom.twist.twist.linear.x =  currentPosition[2]; 
+	odom.twist.twist.linear.y =  0; //Standard Girona500 has not lateral movements
+	odom.twist.twist.linear.z =  currentPosition[1];
 	odom.twist.twist.angular.x = 0; //roll;
 	odom.twist.twist.angular.y = 0; //pitch;
-	odom.twist.twist.angular.z = currentOrientation[1]/3; //yaw
+	odom.twist.twist.angular.z = currentPosition[0]; //yaw
 	for (int i=0; i<36; i++)
 	{
 		odom.twist.covariance[i]=0;

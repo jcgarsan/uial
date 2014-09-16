@@ -53,7 +53,6 @@ Uial::Uial()
 	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
-//	contactRange_sub_ = nh_.subscribe<std_msgs::Bool>("g500/contactSensor", 1, &Uial::sensorContactCallback, this);
 }
 
 Uial::~Uial()
@@ -65,10 +64,7 @@ void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstP
 {
 	//if (pressureValue->pressure < CIRS_pressure)
 	if (pressureValue->pressure > shipweck_pressure)
-	{
 		sensorPressureAlarm = true;
-		cout << "sensorPressureAlarm: the robot is on the surface. " << endl;
-	}
 	else
 		sensorPressureAlarm = false;
 }
@@ -77,25 +73,10 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 {
 	//if (rangeValue->range < CIRS_range)
 	if (rangeValue->range < shipweck_range)
-	{
 		sensorRangeAlarm = true;
-		cout << "rangeValueAlarm: the robot is close the ground." << endl;
-	}
 	else
 		sensorRangeAlarm = false;
 }
-
-/*void Uial::sensorContactCallback(const std_msgs::Bool::ConstPtr& contactValue)
-{
-	if (contactValue->data)
-	{
-		sensorContactAlarm = true;
-		cout << "sensorContactAlarm: the robot is bumping something." << endl;
-	}
-	else
-		sensorContactAlarm = false;
-}*/
-
 
 void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 {
@@ -152,45 +133,104 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		previousPosition[2] = posstamped->pose.position.z;
 
 		//LeapMotion X-axis -> Robot Y-axis
-		currentPosition[0] = posstamped->pose.position.x - abs(initPosition[0]);
 		cout << "Robot movement(s): ";
-		if ((currentPosition[0] >= -15.0) and (currentPosition[0] <= 15.0))
+		if ((posstamped->pose.position.x >= -15.0) and (posstamped->pose.position.x <= 15.0))
 			currentPosition[0] = 0.00;
 		else
 		{
-			currentPosition[0] = (currentPosition[0] < 0 ? -0.3 : 0.3);
 			cout << " Y-Axis: " ;
-			(currentPosition[0] < 0 ? cout << " left |" : cout << " right |");
+			if ((posstamped->pose.position.x > -72.0) and (posstamped->pose.position.x < -15.0))
+			{
+				currentPosition[0] = -0.3;
+				cout << " left |";
+			}
+			if (posstamped->pose.position.x < -72.0)
+			{
+				currentPosition[0] = -0.6;
+				cout << " left 2x |";
+			}
+			if ((posstamped->pose.position.x < 72.0) and (posstamped->pose.position.x > 15.0))
+			{
+				currentPosition[0] = 0.3;
+				cout << " right |";
+			}
+			if (posstamped->pose.position.x > 72.0)
+			{
+				currentPosition[0] = 0.6;
+				cout << " right 2x |";
+			}
 		}
 		//LeapMotion Y-axis -> Robot Z-axis
-		currentPosition[1] = posstamped->pose.position.y - abs(initPosition[1]);
-		if (currentPosition[1] <= 20)
+		if ((posstamped->pose.position.y >= 80) and (posstamped->pose.position.y <= 100))
 			currentPosition[1] = 0.00;
 		else
 		{
-			//currentPosition[1] = (currentPosition[1] < initPosition[1] ? 0.2 : -0.2);
-			if (currentPosition[1] < initPosition[1])
-				if (!sensorRangeAlarm)
-					currentPosition[1] = 0.3;
-				else //The robot is close to the ground
-					currentPosition[1] = 0;
-			else
-				if (!sensorPressureAlarm)
-					currentPosition[1] = -0.3;
-				else //The robot is on the surface
-					currentPosition[1] = 0;
 			cout << " Z-Axis: " ;
-			(currentPosition[1] < 0 ? cout << " up |" : cout << " down |");
+			if (posstamped->pose.position.y < 80)	//User's hand is lower 80=60, 55=45
+				if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 80) and (posstamped->pose.position.y >= 55))
+				{
+						currentPosition[1] = 0.3;
+						cout << " down |";
+				}
+				else
+					if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 55))
+					{
+						currentPosition[1] = 0.6;
+						cout << " down 2x |";
+					}
+					else //sensorRangeAlarm = true
+					{
+						currentPosition[1] = 0.0;
+					}
+			else //User's hand is upper
+				if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 100) and (posstamped->pose.position.y <= 150))
+				{
+					currentPosition[1] = -0.3;
+					cout << " up |";
+				}
+				else
+					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 150))
+					{
+						currentPosition[1] = -0.6;
+						cout << " up 2x |";
+					}
+					else //sensorPressureAlarm = true
+					{
+						currentPosition[1] = 0.0;
+					}
+			if (sensorRangeAlarm)
+				cout << "Alarm: robot on seafloor |";
+			if (sensorPressureAlarm)
+				cout << "Alarm: robot on surface |";
 		}
 		//LeapMotion Z-axis -> Robot X-axis
-		currentPosition[2] = posstamped->pose.position.z - abs(initPosition[2]);
-		if ((currentPosition[2] >= -15.0) and (currentPosition[2] <= 15.0))
+		if ((posstamped->pose.position.z >= -10) and (posstamped->pose.position.z <= 15))
 			currentPosition[2] = 0.00;
 		else
 		{
-			currentPosition[2] = (currentPosition[2] < 0 ? 0.3 : -0.3);
 			cout << " X-Axis: " ;
-			(currentPosition[2] < 0 ? cout << " back |" : cout << " front |");
+			if ((posstamped->pose.position.z < -10) and (posstamped->pose.position.z <= -35))
+			{
+				currentPosition[2] = 0.6;
+				cout << " front 2x |";
+			}
+			else
+				if (posstamped->pose.position.z < -10)
+				{
+					currentPosition[2] = 0.3;
+					cout << " front |";
+				}
+				else
+					if ((posstamped->pose.position.z > 15) and (posstamped->pose.position.z <= 70))
+					{
+						currentPosition[2] = -0.3;
+						cout << " back |";
+					}
+					else
+					{
+							currentPosition[2] = -0.6;
+							cout << " back 2x |";
+					}
 		}
 		//Y-orientation
 		transform_new.setOrigin(tf::Vector3(posstamped->pose.orientation.x, \

@@ -28,7 +28,7 @@
 #define shipweck_range 1.2
 
 #define DEBUG_hand_sub 0
-#define DEBUG_leap_sub 0
+#define DEBUG_leap_sub 1
 
 using namespace std;
 
@@ -305,41 +305,50 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 
 	vel_pub_.publish(odom);
 
+	// DEBUG AREA: print hand position and command to send to UWSim
 	if (DEBUG_leap_sub)
 	{
-		cout << "Robot movement(s): ";
-		if (currentPosition[1] != 0)
-		{
-			if (currentPosition[1] < 0)
-				cout << "Z-Axis: up " << currentPosition[1] << "|";
-			else
-				cout << "Z-Axis: down " << currentPosition[1] << "|";
-		}
-		if (sensorRangeAlarm)
-			cout << "Alarm: robot on seafloor |";
-		if (sensorPressureAlarm)
-			cout << "Alarm: robot on surface |";
-		if (currentPosition[2] != 0)
-		{
-			if (currentPosition[2] < 0)
-				cout << "X-Axis: back " << currentPosition[2] << "|";
-			else
-				cout << "X-Axis: front " << currentPosition[2] << "|";
-		}
-		if (currentPosition[0] != 0)
-		{
-			if (currentPosition[0] < 0)
-				cout << "Y-Axis: left " << currentPosition[0] << "|";
-			else
-				cout << "Y-Axis: right " << currentPosition[0] << "|";
-		}
-		if (currentOrientation[0] != 0)
-		{
-			(currentOrientation[0] < 0 ? cout << " Yaw:  counterclockwise" << endl : cout << " Yaw:  clockwise" << endl);
-			//cout << "roll = " << roll << " | pitch = " << pitch << " | yaw = " << yaw << endl;
-		}
+		cout << "Absolute hand position: (" << posstamped->pose.position.x << ", " << posstamped->pose.position.y << \
+				", " << posstamped->pose.position.z << "-" << posstamped->pose.orientation.y << ")" << endl;
+		if ((currentPosition[0] == 0) and (currentPosition[1] == 0) and \
+			(currentPosition[2] == 0) and (currentOrientation[0] == 0))
+			cout << "Robot stopped: the user's hand is in the deadzone." << endl;
 		else
-			cout << endl;
+		{
+			cout << "Robot movement(s): ";
+			if (currentPosition[1] != 0)
+			{
+				if (currentPosition[1] < 0)
+					cout << "Z-Axis: up " << currentPosition[1] << "|";
+				else
+					cout << "Z-Axis: down " << currentPosition[1] << "|";
+			}
+			if (sensorRangeAlarm)
+				cout << "Alarm: robot on seafloor |";
+			if (sensorPressureAlarm)
+				cout << "Alarm: robot on surface |";
+			if (currentPosition[2] != 0)
+			{
+				if (currentPosition[2] < 0)
+					cout << "X-Axis: back " << currentPosition[2] << "|";
+				else
+					cout << "X-Axis: front " << currentPosition[2] << "|";
+			}
+			if (currentPosition[0] != 0)
+			{
+				if (currentPosition[0] < 0)
+					cout << "Y-Axis: left " << currentPosition[0] << "|";
+				else
+					cout << "Y-Axis: right " << currentPosition[0] << "|";
+			}
+			if (currentOrientation[0] != 0)
+			{
+				(currentOrientation[0] < 0 ? cout << " Yaw:  counterclockwise" << endl : cout << " Yaw:  clockwise" << endl);
+				//cout << "roll = " << roll << " | pitch = " << pitch << " | yaw = " << yaw << endl;
+			}
+			else
+				cout << endl;
+		}
 	}
 }
 

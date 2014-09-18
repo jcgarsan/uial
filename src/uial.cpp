@@ -217,10 +217,10 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 						currentPosition[1] = 0.0;
 				}
 			}
-/*			if (sensorRangeAlarm)
+			if (sensorRangeAlarm)
 				cout << "Alarm: robot on seafloor |" << endl;
 			if (sensorPressureAlarm)
-				cout << "Alarm: robot on surface |" << endl;*/
+				cout << "Alarm: robot on surface |" << endl;
 		}
 		//LeapMotion Z-axis -> Robot X-axis
 		if ((posstamped->pose.position.z >= -10) and (posstamped->pose.position.z <= 15))
@@ -312,7 +312,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 				", " << posstamped->pose.position.z << "-" << posstamped->pose.orientation.y << ")" << endl;
 		if ((currentPosition[0] == 0) and (currentPosition[1] == 0) and \
 			(currentPosition[2] == 0) and (currentOrientation[0] == 0))
-			cout << "Robot stopped: the user's hand is in the deadzone." << endl;
+			cout << "Robot stopped: the user's hand is not detected or it is in the deadzone." << endl;
 		else
 		{
 			cout << "Robot movement(s): ";

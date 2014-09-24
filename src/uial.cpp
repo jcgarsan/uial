@@ -155,7 +155,8 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		transform_init.setRotation(q_init.normalize());
 
 		cout << "Starting hand position: (" << initPosition[0] << "," << initPosition[1] \
-			 << "," << initPosition[2] << " :: " << initOrientation[1] << ")" << endl;
+			 << "," << initPosition[2] << " :: " << initOrientation[0] <<  "," << initOrientation[1] \
+			 << "," << initOrientation[2] <<  "," << initOrientation[3] << ")" << endl;
 		cout << "Press Enter to continue... ";
 		num = getchar();		
 	}

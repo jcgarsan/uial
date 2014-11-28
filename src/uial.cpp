@@ -27,8 +27,8 @@
 #define shipweck_pressure -1.0
 #define shipweck_range 1.2
 
-#define DEBUG_hand_sub 0
-#define DEBUG_leap_sub 1
+#define DEBUG_hand_sub 1
+#define DEBUG_leap_sub 0
 
 using namespace std;
 
@@ -90,20 +90,11 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 
 void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 {
-	(jointstate->position[63] >= 0.9 ? handIsOpen = false : handIsOpen = true);
-
-	//index & middle are pointing && ring & pinky are closed
-	if ((jointstate->position[24] > 0) and (jointstate->position[36] > 0) \
-		and (jointstate->position[48] < 0) and (jointstate->position[60] < 0) \
-		and (handIsOpen))
-		rotationMode = true;
-	else
-		rotationMode = false;
+	(jointstate->position[65] >= 0.9 ? handIsOpen = false : handIsOpen = true);
 
 	if (DEBUG_hand_sub)
 	{
-		(jointstate->position[63] >= 0.9 ? cout << "hand is closed" << endl : cout << "hand is opened" << endl);
-		(rotationMode == false ? cout << "Not rotationMode" << endl : cout << " rotationMode" << endl);
+		(jointstate->position[65] >= 0.9 ? cout << "hand is closed" << endl : cout << "hand is opened" << endl);
 
 	/*	cout << "index.meta  = " << jointstate->position[15] << " / " << jointstate->position[16] \
 								 << " / " << jointstate->position[17] << endl;
@@ -115,7 +106,7 @@ void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 								 << " / " << jointstate->position[26] << endl;
 		cout << endl;*/
 
-		cout << "thumb.dist  = " << jointstate->position[12] << " / " << jointstate->position[13] \
+	/*	cout << "thumb.dist  = " << jointstate->position[12] << " / " << jointstate->position[13] \
 								 << " / " << jointstate->position[14] << endl;
 		cout << "index.dist  = " << jointstate->position[24] << " / " << jointstate->position[25] \
 								 << " / " << jointstate->position[26] << endl;
@@ -124,8 +115,10 @@ void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 		cout << "ring.dist   = " << jointstate->position[48] << " / " << jointstate->position[49] \
 								 << " / " << jointstate->position[50] << endl;
 		cout << "pinky.dist  = " << jointstate->position[60] << " / " << jointstate->position[61] \
-								 << " / " << jointstate->position[62] << endl; 
-		cout << "strength = " << jointstate->position[63] << endl;
+								 << " / " << jointstate->position[62] << endl; */
+		cout << "hands_detected = " << jointstate->position[63] << endl;
+		cout << "right hand? = " << jointstate->position[64] << endl;
+		cout << "strength = " << jointstate->position[65] << endl;
 		cout << endl;
 	}
 }
@@ -310,10 +303,10 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	if (DEBUG_leap_sub)
 	{
 		cout << "Absolute hand position: (" << posstamped->pose.position.x << ", " << posstamped->pose.position.y << \
-				", " << posstamped->pose.position.z << "-" << posstamped->pose.orientation.y << ")" << endl;
+				", " << posstamped->pose.position.z << endl; // "-" << posstamped->pose.orientation.y << ")" << endl;
 		if ((currentPosition[0] == 0) and (currentPosition[1] == 0) and \
 			(currentPosition[2] == 0) and (currentOrientation[0] == 0))
-			cout << "Robot stopped: the user's hand is not detected or it is in the deadzone." << endl;
+			cout << "Robot stopped: the user's hand is not detected, is in the deadzone or does not move." << endl;
 		else
 		{
 			cout << "Robot movement(s): ";

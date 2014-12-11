@@ -41,6 +41,12 @@ class Uial
 		bool sensorRangeAlarm;
 		bool handIsOpen;
 		bool rotationMode;
+		bool selectWaypoint;
+		bool robotStopped;
+
+		int numWaypoint;
+
+		geometry_msgs::PoseStamped waypointsList[10];
 
 
 	private:
@@ -48,6 +54,7 @@ class Uial
 		void leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped);
 		void sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue);
 		void sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue);
+		void odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue);
 
 		ros::NodeHandle nh_;
 
@@ -62,6 +69,7 @@ class Uial
 		ros::Subscriber leap_sub_;
 		ros::Subscriber sensorPressure_sub_;
 		ros::Subscriber sensorRange_sub_;
+		ros::Subscriber odom_sub_;
 
 		tf::Transform transform_init, transform_new;
 		tf::StampedTransform transform;

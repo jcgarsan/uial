@@ -27,7 +27,7 @@
 #define shipweck_pressure -1.0
 #define shipweck_range 1.2
 
-#define DEBUG_hand_sub 1
+#define DEBUG_hand_sub 0
 #define DEBUG_leap_sub 0
 
 using namespace std;
@@ -37,23 +37,26 @@ using namespace std;
 Uial::Uial()
 {
 	//initializing values
-	initPosition[0] = 0;
-	initPosition[1] = 0;
-	initPosition[2] = 0;
-	currentPosition[0] = 0;
-	currentPosition[1] = 0;
-	currentPosition[2] = 0;
+	initPosition[0] 	= 0;
+	initPosition[1] 	= 0;
+	initPosition[2] 	= 0;
+	currentPosition[0] 	= 0;
+	currentPosition[1] 	= 0;
+	currentPosition[2] 	= 0;
 	previousPosition[0] = 0;
 	previousPosition[1] = 0;
 	previousPosition[2] = 0;
-	initOrientation[0] = 0;
-	initOrientation[1] = 0;
-	initOrientation[2] = 0;
-	initOrientation[3] = 0;
-	sensorRangeAlarm = false;
+	initOrientation[0] 	= 0;
+	initOrientation[1] 	= 0;
+	initOrientation[2] 	= 0;
+	initOrientation[3] 	= 0;
+	sensorRangeAlarm 	= false;
 	sensorPressureAlarm = false;
-	handIsOpen = false;
-	rotationMode = false;
+	handIsOpen 			= false;
+	rotationMode 		= false;
+	selectWaypoint 		= false;
+	robotStopped		= false;
+	numWaypoint 		= 1;
 
 	listener = new (tf::TransformListener);
 
@@ -63,12 +66,59 @@ Uial::Uial()
 	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
+	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
 }
 
 Uial::~Uial()
 {
 	//Destructor
 }
+
+//		waypointsList[0].pose.position = posstamped->pose.position;
+//		waypointsList[0].pose.orientation = posstamped->pose.orientation;
+
+void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
+{
+	int i = 0;
+
+	if ((selectWaypoint) and (!robotStopped) and (numWaypoint < 10))
+	{
+/*		cout << "\nWaypoint pose 0: \n" << waypointsList[0].pose.position << endl;
+		if (numWaypoint > 0)
+		{
+			cout << "\nLast waypoint #: " << (numWaypoint - 1) << endl;
+			cout << "Last waypoint #: " << (numWaypoint - 1) << "\n" << waypointsList[(numWaypoint - 1)].pose.position << endl;
+		}*/
+		if ((abs(odomValue->pose.pose.position.x - waypointsList[numWaypoint-1].pose.position.x) >= 0.1) or \
+			(abs(odomValue->pose.pose.position.y - waypointsList[numWaypoint-1].pose.position.y) >= 0.1) or \
+			(abs(odomValue->pose.pose.position.z - waypointsList[numWaypoint-1].pose.position.z) >= 0.1))
+		{
+			cout << "New waypoint #: " << numWaypoint << endl;
+			waypointsList[numWaypoint].pose = odomValue->pose.pose;
+			cout << "New waypoint pose: \n" << waypointsList[numWaypoint].pose.position << endl;
+			numWaypoint++;
+			selectWaypoint = false;
+		}
+		else
+		{
+			cout << "Waypoint similar. Difference: x= " \
+				<< (odomValue->pose.pose.position.x - waypointsList[numWaypoint-1].pose.position.x) \
+				<< ", y= " << (odomValue->pose.pose.position.y - waypointsList[numWaypoint-1].pose.position.y) \
+				<< ", z= " << (odomValue->pose.pose.position.z - waypointsList[numWaypoint-1].pose.position.z) << endl;
+		}
+	}
+	if (numWaypoint <= 10)
+	{
+		cout << "Waypoint list: " << endl;
+		for (int i=0; i < numWaypoint; i++)
+		{
+			cout << " - Waypoint #" << i << ": " << waypointsList[i].pose.position.x << ", "\
+				 << waypointsList[i].pose.position.y << ", " << waypointsList[i].pose.position.z << endl;
+		}
+		selectWaypoint = false;
+	}
+}
+
 
 void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue)
 {
@@ -91,6 +141,11 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 {
 	(jointstate->position[65] >= 0.9 ? handIsOpen = false : handIsOpen = true);
+
+	if ((jointstate->position[64] == 1) and (!handIsOpen))  //The right hand is closed
+		selectWaypoint = true;
+//	else if ((jointstate->position[64] == 1) and (handIsOpen))  //The right hand is opened
+//		selectWaypoint = false;
 
 	if (DEBUG_hand_sub)
 	{
@@ -116,10 +171,11 @@ void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 								 << " / " << jointstate->position[50] << endl;
 		cout << "pinky.dist  = " << jointstate->position[60] << " / " << jointstate->position[61] \
 								 << " / " << jointstate->position[62] << endl; */
-		cout << "hands_detected = " << jointstate->position[63] << endl;
+
+	/*	cout << "hands_detected = " << jointstate->position[63] << endl;
 		cout << "right hand? = " << jointstate->position[64] << endl;
 		cout << "strength = " << jointstate->position[65] << endl;
-		cout << endl;
+		cout << endl; */
 	}
 }
 
@@ -146,6 +202,8 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		q_init = tf::Quaternion(posstamped->pose.orientation.x, posstamped->pose.orientation.y, \
 								posstamped->pose.orientation.z, posstamped->pose.orientation.w);
 		transform_init.setRotation(q_init.normalize());
+		//The starting point in the first waypoint
+		waypointsList[0].pose = posstamped->pose;
 
 		cout << "Starting hand position: (" << initPosition[0] << "," << initPosition[1] \
 			 << "," << initPosition[2] << " :: " << initOrientation[0] <<  "," << initOrientation[1] \
@@ -171,6 +229,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		(posstamped->pose.position.y == previousPosition[1]) and \
 		(posstamped->pose.position.z == previousPosition[2]))
 	{
+		robotStopped = true;
 		for (int i=0; i<3; i++)
 		{
 			currentPosition[i] = 0.0;
@@ -179,6 +238,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	}
 	else
 	{
+		robotStopped = false;
 		//store previous position
 		previousPosition[0] = posstamped->pose.position.x;
 		previousPosition[1] = posstamped->pose.position.y;

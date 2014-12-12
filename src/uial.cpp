@@ -27,6 +27,7 @@
 #define shipweck_pressure -1.0
 #define shipweck_range 1.2
 
+#define DEBUG_waypoint_sub 1
 #define DEBUG_hand_sub 0
 #define DEBUG_leap_sub 0
 
@@ -74,8 +75,6 @@ Uial::~Uial()
 	//Destructor
 }
 
-//		waypointsList[0].pose.position = posstamped->pose.position;
-//		waypointsList[0].pose.orientation = posstamped->pose.orientation;
 
 void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
 {
@@ -83,31 +82,28 @@ void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
 
 	if ((selectWaypoint) and (!robotStopped) and (numWaypoint < 10))
 	{
-/*		cout << "\nWaypoint pose 0: \n" << waypointsList[0].pose.position << endl;
-		if (numWaypoint > 0)
-		{
-			cout << "\nLast waypoint #: " << (numWaypoint - 1) << endl;
-			cout << "Last waypoint #: " << (numWaypoint - 1) << "\n" << waypointsList[(numWaypoint - 1)].pose.position << endl;
-		}*/
 		if ((abs(odomValue->pose.pose.position.x - waypointsList[numWaypoint-1].pose.position.x) >= 0.1) or \
 			(abs(odomValue->pose.pose.position.y - waypointsList[numWaypoint-1].pose.position.y) >= 0.1) or \
 			(abs(odomValue->pose.pose.position.z - waypointsList[numWaypoint-1].pose.position.z) >= 0.1))
 		{
-			cout << "New waypoint #: " << numWaypoint << endl;
 			waypointsList[numWaypoint].pose = odomValue->pose.pose;
-			cout << "New waypoint pose: \n" << waypointsList[numWaypoint].pose.position << endl;
 			numWaypoint++;
 			selectWaypoint = false;
+			cout << "New waypoint #: " << numWaypoint << endl;
+			if (DEBUG_waypoint_sub)
+			{
+				cout << "New waypoint pose: \n" << waypointsList[numWaypoint].pose.position << endl;
+			}
 		}
-		else
+/*		else
 		{
 			cout << "Waypoint similar. Difference: x= " \
 				<< (odomValue->pose.pose.position.x - waypointsList[numWaypoint-1].pose.position.x) \
 				<< ", y= " << (odomValue->pose.pose.position.y - waypointsList[numWaypoint-1].pose.position.y) \
 				<< ", z= " << (odomValue->pose.pose.position.z - waypointsList[numWaypoint-1].pose.position.z) << endl;
-		}
+		}*/
 	}
-	if (numWaypoint <= 10)
+	if ((numWaypoint <= 10) and (DEBUG_waypoint_sub))
 	{
 		cout << "Waypoint list: " << endl;
 		for (int i=0; i < numWaypoint; i++)

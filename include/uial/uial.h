@@ -44,7 +44,7 @@ class Uial
 		bool selectWaypoint;
 		bool robotStopped;
 
-		int numWaypoint;
+		int numWaypoint, handsDetected;
 
 		geometry_msgs::PoseStamped waypointsList[10];
 
@@ -58,11 +58,11 @@ class Uial
 
 		ros::NodeHandle nh_;
 
-		float initPosition[3];
-		float currentPosition[3];
-		float previousPosition[3];
-		float initOrientation[4];
-		float currentOrientation[4];
+		geometry_msgs::Point p0;
+		geometry_msgs::Quaternion q0;
+		geometry_msgs::PoseStamped initPosition;
+		geometry_msgs::PoseStamped previousPosition;
+		geometry_msgs::PoseStamped currentPosition;
 
 		ros::Publisher vel_pub_;
 		ros::Subscriber hand_sub_;

@@ -24,12 +24,12 @@
 
 //shipweck scene
 #define TOPIC  "/dataNavigator_G500RAUVI"		
-#define shipweck_pressure -1.0
-#define shipweck_range 1.2
+#define shipweck_pressure	-1.0
+#define shipweck_range 		1.2
 
-#define DEBUG_waypoint_sub 1
-#define DEBUG_hand_sub 0
-#define DEBUG_leap_sub 0
+#define DEBUG_waypoint_sub	0
+#define DEBUG_hand_sub 		0
+#define DEBUG_leap_sub 		1
 
 using namespace std;
 
@@ -38,19 +38,14 @@ using namespace std;
 Uial::Uial()
 {
 	//initializing values
-	initPosition[0] 	= 0;
-	initPosition[1] 	= 0;
-	initPosition[2] 	= 0;
-	currentPosition[0] 	= 0;
-	currentPosition[1] 	= 0;
-	currentPosition[2] 	= 0;
-	previousPosition[0] = 0;
-	previousPosition[1] = 0;
-	previousPosition[2] = 0;
-	initOrientation[0] 	= 0;
-	initOrientation[1] 	= 0;
-	initOrientation[2] 	= 0;
-	initOrientation[3] 	= 0;
+	p0.x = 0; p0.y = 0; p0.z = 0;
+	q0.x = 0; q0.y = 0; q0.z = 0; q0.w = 0;
+	initPosition.pose.position 		  = p0;
+	initPosition.pose.orientation	  = q0;
+	currentPosition.pose.position 	  = p0;
+	currentPosition.pose.orientation  = q0;
+	previousPosition.pose.position 	  = p0;
+	previousPosition.pose.orientation = q0;
 	sensorRangeAlarm 	= false;
 	sensorPressureAlarm = false;
 	handIsOpen 			= false;
@@ -95,13 +90,10 @@ void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
 				cout << "New waypoint pose: \n" << waypointsList[numWaypoint].pose.position << endl;
 			}
 		}
-/*		else
+		else
 		{
-			cout << "Waypoint similar. Difference: x= " \
-				<< (odomValue->pose.pose.position.x - waypointsList[numWaypoint-1].pose.position.x) \
-				<< ", y= " << (odomValue->pose.pose.position.y - waypointsList[numWaypoint-1].pose.position.y) \
-				<< ", z= " << (odomValue->pose.pose.position.z - waypointsList[numWaypoint-1].pose.position.z) << endl;
-		}*/
+			cout << "Waypoint similar. Quite close to the last one." << endl;
+		}
 	}
 	if ((numWaypoint <= 10) and (DEBUG_waypoint_sub))
 	{
@@ -136,12 +128,12 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 
 void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 {
+	handsDetected = jointstate->position[63];
+	
 	(jointstate->position[65] >= 0.9 ? handIsOpen = false : handIsOpen = true);
 
 	if ((jointstate->position[64] == 1) and (!handIsOpen))  //The right hand is closed
 		selectWaypoint = true;
-//	else if ((jointstate->position[64] == 1) and (handIsOpen))  //The right hand is opened
-//		selectWaypoint = false;
 
 	if (DEBUG_hand_sub)
 	{
@@ -181,90 +173,75 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	double roll, pitch, yaw;
 	
 	//Initial user hand position
-	if ((initPosition[0] == 0) and (initPosition[1] == 0) and (initPosition[2] == 0))
+	if ((initPosition.pose.position.x == 0) and (initPosition.pose.position.y == 0) \
+		and (initPosition.pose.position.z == 0))
 	{
-		initPosition[0] = posstamped->pose.position.x;
-		initPosition[1] = posstamped->pose.position.y;
-		initPosition[2] = posstamped->pose.position.z;
-		//Save initial hand orientation
-		initOrientation[0] = posstamped->pose.orientation.x;
-		initOrientation[1] = posstamped->pose.orientation.y;
-		initOrientation[2] = posstamped->pose.orientation.z;
-		initOrientation[3] = posstamped->pose.orientation.w;
+		//Save initial hand position & orientation
+		initPosition.pose = posstamped->pose;
 		//Set initial transform data
-		transform_init.setOrigin(tf::Vector3(initPosition[0], initPosition[1], initPosition[2]));
-//		transform_init.setOrigin(tf::Vector3(posstamped->pose.orientation.x, \
-								posstamped->pose.orientation.y, posstamped->pose.orientation.z));
+		transform_init.setOrigin(tf::Vector3(posstamped->pose.position.x, posstamped->pose.position.y, \
+								posstamped->pose.position.z));
 		q_init = tf::Quaternion(posstamped->pose.orientation.x, posstamped->pose.orientation.y, \
 								posstamped->pose.orientation.z, posstamped->pose.orientation.w);
 		transform_init.setRotation(q_init.normalize());
 		//The starting point in the first waypoint
 		waypointsList[0].pose = posstamped->pose;
 
-		cout << "Starting hand position: (" << initPosition[0] << "," << initPosition[1] \
-			 << "," << initPosition[2] << " :: " << initOrientation[0] <<  "," << initOrientation[1] \
-			 << "," << initOrientation[2] <<  "," << initOrientation[3] << ")" << endl;
+		cout << "Starting hand...\n" << initPosition.pose << endl;
+
 		cout << "Press Enter to continue... ";
 		num = getchar();		
 	}
 	br.sendTransform(tf::StampedTransform(transform_init, ros::Time::now(), "world", "init_pose"));
 
-	
 	//Keep all with 0. We send velocities, not position.
 	nav_msgs::Odometry odom;
-	odom.pose.pose.position.x=0.0;
-	odom.pose.pose.position.y=0.0;
-	odom.pose.pose.position.z=0.0;
-	odom.pose.pose.orientation.x=0.0;
-	odom.pose.pose.orientation.y=0.0;
-	odom.pose.pose.orientation.z=0.0;
-	odom.pose.pose.orientation.w=1;
+	odom.pose.pose.position		 = p0;
+	odom.pose.pose.orientation	 = q0;
+	odom.pose.pose.orientation.w = 1;
 
 	//if the user don't move the hand, the robot keep the position
-	if ((posstamped->pose.position.x == previousPosition[0]) and \
-		(posstamped->pose.position.y == previousPosition[1]) and \
-		(posstamped->pose.position.z == previousPosition[2]))
+	if ((posstamped->pose.position.x == previousPosition.pose.position.x) and \
+		(posstamped->pose.position.y == previousPosition.pose.position.y) and \
+		(posstamped->pose.position.z == previousPosition.pose.position.z))
 	{
 		robotStopped = true;
-		for (int i=0; i<3; i++)
-		{
-			currentPosition[i] = 0.0;
-			currentOrientation[0] = 0.0;
-		}
+		currentPosition.pose.position = p0;
+		currentPosition.pose.orientation = q0;
 	}
 	else
 	{
 		robotStopped = false;
 		//store previous position
-		previousPosition[0] = posstamped->pose.position.x;
-		previousPosition[1] = posstamped->pose.position.y;
-		previousPosition[2] = posstamped->pose.position.z;
+		previousPosition.pose.position.x = posstamped->pose.position.x;
+		previousPosition.pose.position.y = posstamped->pose.position.y;
+		previousPosition.pose.position.z = posstamped->pose.position.z;
 
 		//LeapMotion Y-axis -> Robot Z-axis
 		if ((posstamped->pose.position.y >= 80) and (posstamped->pose.position.y <= 120))
-			currentPosition[1] = 0.0;
+			currentPosition.pose.position.y = 0.0;
 		else
 		{
 			if (posstamped->pose.position.y < 80)
 				if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 80) and (posstamped->pose.position.y >= 55))
-						currentPosition[1] = 0.3;
+						currentPosition.pose.position.y = 0.3;
 				else
 				{
 					if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 55))
-						currentPosition[1] = 0.6;
+						currentPosition.pose.position.y = 0.6;
 					else //sensorRangeAlarm = true
-						currentPosition[1] = 0.0;
+						currentPosition.pose.position.y = 0.0;
 				}
 			else //User's hand is upper
 			{
 				if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 120) and (posstamped->pose.position.y <= 170))
-					currentPosition[1] = -0.3;
+					currentPosition.pose.position.y = -0.3;
 				else
 				{
 					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 170))
-						currentPosition[1] = -0.6;
+						currentPosition.pose.position.y = -0.6;
 					else //sensorPressureAlarm = true
-						currentPosition[1] = 0.0;
+						currentPosition.pose.position.y = 0.0;
 				}
 			}
 			if (sensorRangeAlarm)
@@ -274,41 +251,41 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		}
 		//LeapMotion Z-axis -> Robot X-axis
 		if ((posstamped->pose.position.z >= -10) and (posstamped->pose.position.z <= 15))
-			currentPosition[2] = 0.0;
+			currentPosition.pose.position.z = 0.0;
 		else
 		{
 			if ((posstamped->pose.position.z < -10) and (posstamped->pose.position.z <= -35))
-				currentPosition[2] = 0.6;
+				currentPosition.pose.position.z = 0.6;
 			else
 			{
 				if (posstamped->pose.position.z < -10)
-					currentPosition[2] = 0.3;
+					currentPosition.pose.position.z = 0.3;
 				else
 				{
 					if ((posstamped->pose.position.z > 15) and (posstamped->pose.position.z <= 70))
-						currentPosition[2] = -0.3;
+						currentPosition.pose.position.z = -0.3;
 					else
-						currentPosition[2] = -0.6;
+						currentPosition.pose.position.z = -0.6;
 				}
 			}
 		}
 		//LeapMotion X-axis -> Robot Y-axis
 		if ((posstamped->pose.position.x >= -25.0) and (posstamped->pose.position.x <= 25.0))
-			currentPosition[0] = 0.00;
+			currentPosition.pose.position.x = 0.00;
 		else
 		{
 			if ((posstamped->pose.position.x > 25.0) and (posstamped->pose.position.x <= 90.0))
-				currentPosition[0] = 0.3;
+				currentPosition.pose.position.x = 0.3;
 			else
 			{
 				if (posstamped->pose.position.x > 90.0) //and (posstamped->pose.position.x > 70.0))
-					currentPosition[0] = 0.6;
+					currentPosition.pose.position.x = 0.6;
 				else
 				{
 					if ((posstamped->pose.position.x < -25.0) and (posstamped->pose.position.x <= -90.0))
-						currentPosition[0] = -0.6;
+						currentPosition.pose.position.x = -0.6;
 					else
-						currentPosition[0] = -0.3;
+						currentPosition.pose.position.x = -0.3;
 				}
 			}
 		}
@@ -320,33 +297,36 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		transform_new.setRotation(q_new.normalize());
 		br.sendTransform(tf::StampedTransform(transform_new, ros::Time::now(), "world", "new_pose"));
 
-		try{
+		try
+		{
 			listener->lookupTransform("/new_pose", "/init_pose", ros::Time(0), transform);
 		}
-		catch (tf::TransformException ex){
+		catch (tf::TransformException ex)
+		{
 			ROS_ERROR("%s",ex.what());
 			ros::Duration(1.0).sleep();
 		}
+
 		transform.getBasis().getRPY(roll, pitch, yaw);
 		if (roll < -0.5)
 		{
-			currentOrientation[0] = -0.2;
+			currentPosition.pose.orientation.x = -0.2;
 		}
 		else
 		{
 			if ((roll >= -0.5) and (roll <= 0.5))
-				currentOrientation[0] = 0.0;			
+				currentPosition.pose.orientation.x = 0.0;			
 			else
-				currentOrientation[0] = 0.2;
+				currentPosition.pose.orientation.x = 0.2;
 		}
 	}
 	//Assign the calculated values into the publisher
-	odom.twist.twist.linear.x =  currentPosition[2]; 
-	odom.twist.twist.linear.y =  currentPosition[0]; 
-	odom.twist.twist.linear.z =  currentPosition[1];
+	odom.twist.twist.linear.x =  currentPosition.pose.position.z;
+	odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+	odom.twist.twist.linear.z =  currentPosition.pose.position.y;
 	odom.twist.twist.angular.x = 0; //roll;
 	odom.twist.twist.angular.y = 0; //pitch;
-	odom.twist.twist.angular.z = currentOrientation[0]; //yaw
+	odom.twist.twist.angular.z = currentPosition.pose.orientation.x; //yaw
 	for (int i=0; i<36; i++)
 	{
 		odom.twist.covariance[i]=0;
@@ -359,41 +339,43 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	if (DEBUG_leap_sub)
 	{
 		cout << "Absolute hand position: (" << posstamped->pose.position.x << ", " << posstamped->pose.position.y << \
-				", " << posstamped->pose.position.z << endl; // "-" << posstamped->pose.orientation.y << ")" << endl;
-		if ((currentPosition[0] == 0) and (currentPosition[1] == 0) and \
-			(currentPosition[2] == 0) and (currentOrientation[0] == 0))
+				", " << posstamped->pose.position.z << " : " << posstamped->pose.orientation.x << \
+				", " << posstamped->pose.orientation.y << ", " << posstamped->pose.orientation.z << \
+				", " << posstamped->pose.orientation.w << ")" << endl;
+		if ((currentPosition.pose.position.x == 0) and (currentPosition.pose.position.y == 0) and \
+			(currentPosition.pose.position.z == 0) and (currentPosition.pose.orientation.x == 0))
 			cout << "Robot stopped: the user's hand is not detected, is in the deadzone or does not move." << endl;
 		else
 		{
 			cout << "Robot movement(s): ";
-			if (currentPosition[1] != 0)
+			if (currentPosition.pose.position.y != 0)
 			{
-				if (currentPosition[1] < 0)
-					cout << "Z-Axis: up " << currentPosition[1] << "|";
+				if (currentPosition.pose.position.y < 0)
+					cout << "Z-Axis: up " << currentPosition.pose.position.y << "|";
 				else
-					cout << "Z-Axis: down " << currentPosition[1] << "|";
+					cout << "Z-Axis: down " << currentPosition.pose.position.y << "|";
 			}
 			if (sensorRangeAlarm)
 				cout << "Alarm: robot on seafloor |";
 			if (sensorPressureAlarm)
 				cout << "Alarm: robot on surface |";
-			if (currentPosition[2] != 0)
+			if (currentPosition.pose.position.z != 0)
 			{
-				if (currentPosition[2] < 0)
-					cout << "X-Axis: back " << currentPosition[2] << "|";
+				if (currentPosition.pose.position.z < 0)
+					cout << "X-Axis: back " << currentPosition.pose.position.z << "|";
 				else
-					cout << "X-Axis: front " << currentPosition[2] << "|";
+					cout << "X-Axis: front " << currentPosition.pose.position.z << "|";
 			}
-			if (currentPosition[0] != 0)
+			if (currentPosition.pose.position.x != 0)
 			{
-				if (currentPosition[0] < 0)
-					cout << "Y-Axis: left " << currentPosition[0] << "|";
+				if (currentPosition.pose.position.x < 0)
+					cout << "Y-Axis: left " << currentPosition.pose.position.x << "|";
 				else
-					cout << "Y-Axis: right " << currentPosition[0] << "|";
+					cout << "Y-Axis: right " << currentPosition.pose.position.x << "|";
 			}
-			if (currentOrientation[0] != 0)
+			if (currentPosition.pose.orientation.x != 0)
 			{
-				(currentOrientation[0] < 0 ? cout << " Yaw:  counterclockwise" << endl : cout << " Yaw:  clockwise" << endl);
+				(currentPosition.pose.orientation.x < 0 ? cout << " Yaw:  counterclockwise" << endl : cout << " Yaw:  clockwise" << endl);
 				//cout << "roll = " << roll << " | pitch = " << pitch << " | yaw = " << yaw << endl;
 			}
 			else

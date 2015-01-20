@@ -29,7 +29,7 @@
 
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
-#define DEBUG_leap_sub 		1
+#define DEBUG_leap_sub 		0
 
 using namespace std;
 
@@ -52,6 +52,7 @@ Uial::Uial()
 	rotationMode 		= false;
 	selectWaypoint 		= false;
 	robotStopped		= false;
+	rightHand			= false;
 	numWaypoint 		= 1;
 
 	listener = new (tf::TransformListener);
@@ -130,9 +131,10 @@ void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 {
 	handsDetected = jointstate->position[63];
 	
+	(jointstate->position[64] == 1   ? rightHand = true : rightHand = false);
 	(jointstate->position[65] >= 0.9 ? handIsOpen = false : handIsOpen = true);
 
-	if ((jointstate->position[64] == 1) and (!handIsOpen))  //The right hand is closed
+	if ((rightHand) and (!handIsOpen))  //The right hand is closed
 		selectWaypoint = true;
 
 	if (DEBUG_hand_sub)

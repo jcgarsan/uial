@@ -43,6 +43,7 @@ class Uial
 		bool rotationMode;
 		bool selectWaypoint;
 		bool robotStopped;
+		bool rightHand;
 
 		int numWaypoint, handsDetected;
 

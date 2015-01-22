@@ -7,16 +7,13 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   geometry_msgs
   tf
-#  sensor_msgs
+  mar_robot_arm5e
 )
+find_package(VISP REQUIRED)
 
-# find_package(uwsim REQUIRED)
-# find_package(leap_tracker REQUIRED)
 
 catkin_package(
   INCLUDE_DIRS include
-#  LIBRARIES
-#	uial
   CATKIN_DEPENDS
 	roscpp
 	rospy
@@ -25,21 +22,22 @@ catkin_package(
 	nav_msgs
 	robot_state_publisher
 	sensor_msgs
-#  DEPENDS
-#	uwsim
-#	leap_tracker
+	mar_robot_arm5e
+  DEPENDS
+	VISP
 )
 
 ###########
 ## Build ##
 ###########
-
+add_definitions(${VISP_DEFINITIONS})
+link_directories(${VISP_LIBRARY_DIRS})
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
-)
+  ${VISP_INCLUDE_DIRS})
 
 ## Declare a cpp library
 # add_library(uial

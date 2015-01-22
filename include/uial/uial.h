@@ -27,6 +27,8 @@
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
 
+#include <mar_robot_arm5e/ARM5Arm.h>
+
 using namespace std;
 
 
@@ -44,6 +46,11 @@ class Uial
 		bool selectWaypoint;
 		bool robotStopped;
 		bool rightHand;
+		bool moving;
+		
+		ARM5Arm *robot;
+		vpHomogeneousMatrix desired_bMe, bMe;
+		vpColVector next_joints;
 
 		int numWaypoint, handsDetected;
 
@@ -65,7 +72,7 @@ class Uial
 		geometry_msgs::PoseStamped previousPosition;
 		geometry_msgs::PoseStamped currentPosition;
 
-		ros::Publisher vel_pub_;
+		ros::Publisher  vel_pub_;
 		ros::Subscriber hand_sub_;
 		ros::Subscriber leap_sub_;
 		ros::Subscriber sensorPressure_sub_;

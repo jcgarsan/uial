@@ -217,6 +217,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		(posstamped->pose.position.z == previousPosition.pose.position.z))
 	{
 		robotStopped = true;
+		moving = false;
 		currentPosition.pose.position = p0;
 		currentPosition.pose.orientation = q0;
 	}
@@ -360,47 +361,26 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			{
 				cout << "Arm Z-axis" << endl;
 				if (posstamped->pose.position.y < 80)
-					if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 80) and (posstamped->pose.position.y >= 55))
-							currentPosition.pose.position.y = 0.3;
-					else
+						currentPosition.pose.position.y = 0.05;
+				else
 					{
-						if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 55))
-							currentPosition.pose.position.y = 0.6;
+						if (posstamped->pose.position.y > 120)
+							currentPosition.pose.position.y = -0.05;
 						else //sensorRangeAlarm = true
 							currentPosition.pose.position.y = 0.0;
 					}
-				else //User's hand is upper
-				{
-					if ((posstamped->pose.position.y > 120) and (posstamped->pose.position.y <= 170))
-						currentPosition.pose.position.y = -0.3;
-					else
-					{
-						if (posstamped->pose.position.y > 170)
-							currentPosition.pose.position.y = -0.6;
-					}
-				}
-				if (sensorRangeAlarm)
-					cout << "Alarm: robot on seafloor |" << endl;
 			}
 			//LeapMotion Z-axis -> end effector X-axis
-			if ((posstamped->pose.position.z >= -10) and (posstamped->pose.position.z <= 15))
+			if ((posstamped->pose.position.z >= -20) and (posstamped->pose.position.z <= 20))
 				currentPosition.pose.position.z = 0.0;
 			else
 			{
 				cout << "Arm X-axis" << endl;
-				if ((posstamped->pose.position.z < -10) and (posstamped->pose.position.z <= -35))
-					currentPosition.pose.position.z = 0.6;
+				if (posstamped->pose.position.z < -10)
+					currentPosition.pose.position.z = -0.05;
 				else
 				{
-					if (posstamped->pose.position.z < -10)
-						currentPosition.pose.position.z = 0.3;
-					else
-					{
-						if ((posstamped->pose.position.z > 15) and (posstamped->pose.position.z <= 70))
-							currentPosition.pose.position.z = -0.3;
-						else
-							currentPosition.pose.position.z = -0.6;
-					}
+					currentPosition.pose.position.z = 0.05;
 				}
 			}
 			//LeapMotion X-axis -> end effector Y-axis
@@ -409,19 +389,11 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			else
 			{
 				cout << "Arm Y-axis" << endl;
-				if ((posstamped->pose.position.x > 25.0) and (posstamped->pose.position.x <= 90.0))
-					currentPosition.pose.position.x = 0.3;
+				if (posstamped->pose.position.x > 25.0) 
+					currentPosition.pose.position.x = 0.05;
 				else
 				{
-					if (posstamped->pose.position.x > 90.0) //and (posstamped->pose.position.x > 70.0))
-						currentPosition.pose.position.x = 0.6;
-					else
-					{
-						if ((posstamped->pose.position.x < -25.0) and (posstamped->pose.position.x <= -90.0))
-							currentPosition.pose.position.x = -0.6;
-						else
-							currentPosition.pose.position.x = -0.3;
-					}
+					currentPosition.pose.position.x = -0.05;
 				}
 			}
 			//Yaw-orientation
@@ -455,24 +427,41 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 					currentPosition.pose.orientation.x = 0.2;
 			}			
 			
+			cout << "currentPosition.pose.position: " << currentPosition.pose.position.x << ", " << \
+					currentPosition.pose.position.y << ", " << currentPosition.pose.position.z << endl;
+			
+			if(robot->getJointValues(current_joints))
+			{		
+				bMe=robot->directKinematics(current_joints);
+				cout << "Before bMe" << endl << bMe << endl;
+			}
+			
 			//Calculate the base-end effector matrix
-			desired_bMe=bMe;
-			desired_bMe[0][3]-= currentPosition.pose.position.x;
-			desired_bMe[1][3]-= currentPosition.pose.position.x;
-			desired_bMe[2][3]-= currentPosition.pose.position.x;
-
-			//std::cerr<<"Desired bMe"<<std::endl<<desired_bMe<<std::endl;
-			next_joints = robot->armIK(desired_bMe);
-			//std::cerr<<"Desired joints"<<std::endl<<next_joints<<std::endl;
+			if (!moving)
+			{
+				desired_bMe = bMe;
+				desired_bMe[0][3]-= currentPosition.pose.position.z;
+				desired_bMe[1][3]-= 0; //currentPosition.pose.position.x;
+				desired_bMe[2][3]-= currentPosition.pose.position.y;
+				next_joints = robot->armIK(desired_bMe);
+				cout << "Desired joints" << endl << next_joints << endl;
+				cout << "Desired bMe" << endl << desired_bMe << endl;
+			}			
 			
 			//If valid joints and reasonable new position ... ask to MOVE
-			if ((next_joints[0] > -1.57) && (next_joints[0] < 2.1195) && (next_joints[1] > 0) && \
-				(next_joints[1] < 1.58665) && (next_joints[2] > 0) && (next_joints[2] < 2.15294))
-			{
-				if ((std::abs(desired_bMe[0][3] - bMe[0][3]) < 5) && \
-					(std::abs(desired_bMe[1][3] - bMe[1][3]) < 5) && \
-					(std::abs(bMe[2][3] - bMe[2][3]) < 5))
+			if ((next_joints[0] > -1.57) and (next_joints[0] < 2.1195) and (next_joints[1] > 0) and \
+				(next_joints[1] < 1.58665) and (next_joints[2] > 0) and (next_joints[2] < 2.15294))			// join limits
+			{ //dist (m) entre current y desire
+				if (((std::abs(desired_bMe[0][3] - bMe[0][3]) < 1.5) and \
+					(std::abs(desired_bMe[1][3] - bMe[1][3]) < 1.5) and \
+					(std::abs(desired_bMe[2][3] - bMe[2][3]) < 1.5)) and
+					((std::abs(desired_bMe[0][3] - bMe[0][3]) > 0) or \
+					(std::abs(desired_bMe[1][3] - bMe[1][3]) > 0) or \
+					(std::abs(desired_bMe[2][3] - bMe[2][3]) > 0)))
+				{
 					moving = true;
+					ROS_INFO("Moving...");
+				}
 				else
 					ROS_INFO("Error: New position too far form the original position.");
 			}
@@ -480,46 +469,34 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 				ROS_INFO("Error: Unreachable position.");			
 			
 			//Send the parameters
-			//int res=robot->getJointValues(current_joints);
-			if(robot->getJointValues(current_joints))
-			{		
-				bMe=robot->directKinematics(current_joints);
-				//std::cerr<<"Current bMe"<<std::endl<<bMe<<std::endl;
-				
-				if(moving)
+			if(moving)
+			{
+				//Check if it's almost there
+				if((std::abs(desired_bMe[0][3] - bMe[0][3]) > 0.01) || \
+					(std::abs(desired_bMe[1][3] - bMe[1][3]) > 0.01) || \
+					(std::abs(desired_bMe[2][3] - bMe[2][3]) > 0.01))
 				{
-					//Check if it's almost there
-					if((std::abs(desired_bMe[0][3] - bMe[0][3]) > 0.01) || \
-						(std::abs(desired_bMe[1][3] - bMe[1][3]) > 0.01) || \
-						(std::abs(desired_bMe[2][3] - bMe[2][3]) > 0.01))
-					{
-						ROS_INFO("Info: Movingo to desired position.");
-						send_joints[0]=next_joints[0]-current_joints[0];
-						send_joints[1]=next_joints[1]-current_joints[1];
-						send_joints[2]=next_joints[2]-current_joints[2];
-					}
-					else
-					{
-						ROS_INFO("Info: Position reached");
-						send_joints[0]=0;
-						send_joints[1]=0;
-						send_joints[2]=0;
-						moving=false;
-					}
+					ROS_INFO("Info: Moving to desired position.");
+					send_joints[0]=next_joints[0]-current_joints[0];
+					send_joints[1]=next_joints[1]-current_joints[1];
+					send_joints[2]=next_joints[2]-current_joints[2];
+					ROS_INFO_STREAM (send_joints[0]<<"::"<<send_joints[1]<<"::"<<send_joints[2]);
 				}
 				else
 				{
-					ROS_INFO("Info: Joystick is not moving.");
+					ROS_INFO("Info: Position reached");
 					send_joints[0]=0;
 					send_joints[1]=0;
-					send_joints[2]=0;		
+					send_joints[2]=0;
+					moving=false;
 				}
 			}
-			else{
-				ROS_ERROR("Error: Impossible to access to the arm controler");
+			else
+			{
+				ROS_INFO("Info: arm is not moving.");
 				send_joints[0]=0;
 				send_joints[1]=0;
-				send_joints[2]=0;
+				send_joints[2]=0;		
 			}
 
 			robot->setJointVelocity(send_joints);

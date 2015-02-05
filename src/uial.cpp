@@ -22,19 +22,18 @@
 #include <cmath>  
 
 //CIRS scene
-#define TOPIC  "/dataNavigator"				
-#define pressureThreshold 0.2
-#define rangeThreshold 0.6
-
+#define TOPIC  "/dataNavigator"
 //shipweck scene
 //#define TOPIC  "/dataNavigator_G500RAUVI"		
-//#define pressureThreshold	-1.0
-//#define rangeThreshold 		 1.2
+
+#define pressureThreshold	0.5
+#define rangeThreshold 		1.0
 
 //DEBUG Flags
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
 #define DEBUG_leap_sub 		0
+#define DEBUG_spacenav_sub	1
 
 using namespace std;
 
@@ -59,6 +58,9 @@ Uial::Uial()
 	robotStopped		= false;
 	rightHand			= false;
 	moving				= false;
+	gripperOpen			= false;
+	gripperClose		= false;
+	robotControl		= true;
 	numWaypoint 		= 1;
 
 	listener = new (tf::TransformListener);
@@ -70,6 +72,8 @@ Uial::Uial()
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
 	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
+	spacenav_sub_ = nh_.subscribe<geometry_msgs::Twist>("spacenav/twist", 1, &Uial::spacenavCallback, this);
+	spacenavButtons_sub_ = nh_.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
 	
 	robot=new ARM5Arm(nh_, "uwsim/joint_state", "uwsim/joint_state_command");
 
@@ -80,6 +84,17 @@ Uial::~Uial()
 	//Destructor
 }
 
+void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
+{
+	if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
+		gripperOpen = !gripperOpen;
+	if ((spacenavButtons->buttons[0] == 0) and (spacenavButtons->buttons[1] == 1)) 
+		gripperClose = !gripperClose;
+	if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 1)) 
+		robotControl = !robotControl;
+	
+	cout << "gripperOpen = " << gripperOpen << ", gripperClose = " << gripperClose << ", robotControl = " << robotControl << endl;
+}
 
 void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
 {
@@ -120,11 +135,12 @@ void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
 
 void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue)
 {
-	if (pressureValue->pressure > pressureThreshold)
+	if (abs(pressureValue->pressure) < pressureThreshold)
 		sensorPressureAlarm = true;
 	else
 		sensorPressureAlarm = false;
 }
+
 
 void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 {
@@ -133,6 +149,7 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 	else
 		sensorRangeAlarm = false;
 }
+
 
 void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 {
@@ -175,6 +192,7 @@ void Uial::leapHandCallback(const sensor_msgs::JointState::ConstPtr& jointstate)
 		cout << endl; */
 	}
 }
+
 
 void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 {
@@ -552,6 +570,316 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		}
 	}
 }
+
+
+void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
+{
+	int num;
+	double roll, pitch, yaw;
+	nav_msgs::Odometry odom;
+	sensor_msgs::JointState js;
+	vpColVector current_joints(5), send_joints(5);
+
+	if (robotControl)
+	{
+		//SpaceNav X-axis -> Robot X-axis
+		if ((twistValue->linear.x <= 60.0) and (twistValue->linear.x >= -60))
+			currentPosition.pose.position.x = 0.0;
+		else
+		{
+			if (twistValue->linear.x > 60)
+			{
+				if (twistValue->linear.x < 200)
+						currentPosition.pose.position.x = 0.3;
+				else  //(twistValue->linear.x >= 200)
+					currentPosition.pose.position.x = 0.6;
+			}
+			else
+			{
+				if (twistValue->linear.x > -200)
+						currentPosition.pose.position.x = -0.3;
+				else  //(twistValue->linear.x <= -200)
+					currentPosition.pose.position.x = -0.6;
+			}
+		}
+		//SpaceNav Y-axis -> Robot Y-axis
+		if ((twistValue->linear.y <= 60) and (twistValue->linear.y >= -60))
+			currentPosition.pose.position.y = 0.0;
+		else
+		{
+			if (twistValue->linear.y > 60)
+			{
+				if (twistValue->linear.y < 200)
+						currentPosition.pose.position.y = -0.3;
+				else
+					currentPosition.pose.position.y = -0.6;
+			}
+			else
+			{
+				if (twistValue->linear.y > -200)
+						currentPosition.pose.position.y = 0.3;
+				else
+					currentPosition.pose.position.y = 0.6;
+			}
+		}
+		//SpaceNav Z-axis -> Robot Z-axis
+		if ((twistValue->linear.z <= 60) and (twistValue->linear.z >= -60))
+			currentPosition.pose.position.z = 0.0;
+		else
+		{
+			if (twistValue->linear.z > 60)
+			{
+				if (!sensorPressureAlarm)
+				{
+					if (twistValue->linear.z < 200)
+						currentPosition.pose.position.z = -0.3;
+					else
+						currentPosition.pose.position.z = -0.6;
+				}
+			}
+			else if (!sensorRangeAlarm)
+			{
+				if (twistValue->linear.z > -200)
+						currentPosition.pose.position.z = 0.3;
+				else
+					currentPosition.pose.position.z = 0.6;
+			}
+			if (sensorRangeAlarm)
+				cout << "Alarm: robot on seafloor." << endl;
+			if (sensorPressureAlarm)
+				cout << "Alarm: robot on surface." << endl;
+		}
+
+		if ((twistValue->angular.z <= 100) and (twistValue->angular.z >= -100))
+			currentPosition.pose.orientation.z = 0.0;
+		else
+		{
+			if (twistValue->angular.z > 100)
+				currentPosition.pose.orientation.z = -0.3;
+			else
+				currentPosition.pose.orientation.z = 0.3;
+		}
+
+
+//		currentPosition.pose.orientation.x = 0.0;			
+			
+		//Assign the calculated values into the publisher
+		odom.twist.twist.linear.x =  currentPosition.pose.position.x;
+		odom.twist.twist.linear.y =  currentPosition.pose.position.y;
+		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+		odom.twist.twist.angular.x = 0; //roll;
+		odom.twist.twist.angular.y = 0; //pitch;
+		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+		for (int i=0; i<36; i++)
+		{
+			odom.twist.covariance[i]=0;
+			odom.pose.covariance[i]=0;
+		}
+		vel_pub_.publish(odom);			
+	}
+		
+/*		//If there are two hands, the user controls the end effector
+		else if ((handsDetected == 2) and rightHand)
+		{
+			cout << "two hands detected" << endl;
+			//LeapMotion Y-axis -> end effector Z-axis
+			if ((posstamped->pose.position.y >= 80) and (posstamped->pose.position.y <= 120))
+				currentPosition.pose.position.y = 0.0;
+			else
+			{
+				cout << "Arm Z-axis" << endl;
+				if (posstamped->pose.position.y < 80)
+						currentPosition.pose.position.y = 0.05;
+				else
+					{
+						if (posstamped->pose.position.y > 120)
+							currentPosition.pose.position.y = -0.05;
+						else //sensorRangeAlarm = true
+							currentPosition.pose.position.y = 0.0;
+					}
+			}
+			//LeapMotion Z-axis -> end effector X-axis
+			if ((posstamped->pose.position.z >= -20) and (posstamped->pose.position.z <= 20))
+				currentPosition.pose.position.z = 0.0;
+			else
+			{
+				cout << "Arm X-axis" << endl;
+				if (posstamped->pose.position.z < -10)
+					currentPosition.pose.position.z = -0.05;
+				else
+				{
+					currentPosition.pose.position.z = 0.05;
+				}
+			}
+			//LeapMotion X-axis -> end effector Y-axis
+			if ((posstamped->pose.position.x >= -25.0) and (posstamped->pose.position.x <= 25.0))
+				currentPosition.pose.position.x = 0.00;
+			else
+			{
+				cout << "Arm Y-axis" << endl;
+				if (posstamped->pose.position.x > 25.0) 
+					currentPosition.pose.position.x = 0.05;
+				else
+				{
+					currentPosition.pose.position.x = -0.05;
+				}
+			}
+			//Yaw-orientation
+			transform_new.setOrigin(tf::Vector3(posstamped->pose.orientation.x, \
+									posstamped->pose.orientation.y, posstamped->pose.orientation.z));
+			q_new = tf::Quaternion(posstamped->pose.orientation.x, posstamped->pose.orientation.y, \
+									posstamped->pose.orientation.z, posstamped->pose.orientation.w);
+			transform_new.setRotation(q_new.normalize());
+			br.sendTransform(tf::StampedTransform(transform_new, ros::Time::now(), "world", "new_pose"));
+
+			try
+			{
+				listener->lookupTransform("/new_pose", "/init_pose", ros::Time(0), transform);
+			}
+			catch (tf::TransformException ex)
+			{
+				ROS_ERROR("%s",ex.what());
+				ros::Duration(1.0).sleep();
+			}
+
+			transform.getBasis().getRPY(roll, pitch, yaw);
+			if (roll < -0.5)
+			{
+				currentPosition.pose.orientation.x = -0.2;
+			}
+			else
+			{
+				if ((roll >= -0.5) and (roll <= 0.5))
+					currentPosition.pose.orientation.x = 0.0;			
+				else
+					currentPosition.pose.orientation.x = 0.2;
+			}			
+			
+			cout << "currentPosition.pose.position: " << currentPosition.pose.position.x << ", " << \
+					currentPosition.pose.position.y << ", " << currentPosition.pose.position.z << endl;
+			
+			if(robot->getJointValues(current_joints))
+			{		
+				bMe=robot->directKinematics(current_joints);
+				cout << "Before bMe" << endl << bMe << endl;
+			}
+			
+			//Calculate the base-end effector matrix
+			if (!moving)
+			{
+				desired_bMe = bMe;
+				desired_bMe[0][3]-= currentPosition.pose.position.z;
+				desired_bMe[1][3]-= 0; //currentPosition.pose.position.x;
+				desired_bMe[2][3]-= currentPosition.pose.position.y;
+				next_joints = robot->armIK(desired_bMe);
+				cout << "Desired joints" << endl << next_joints << endl;
+				cout << "Desired bMe" << endl << desired_bMe << endl;
+			}			
+			
+			//If valid joints and reasonable new position ... ask to MOVE
+			if ((next_joints[0] > -1.57) and (next_joints[0] < 2.1195) and (next_joints[1] > 0) and \
+				(next_joints[1] < 1.58665) and (next_joints[2] > 0) and (next_joints[2] < 2.15294))			// join limits
+			{ //dist (m) entre current y desire
+				if (((std::abs(desired_bMe[0][3] - bMe[0][3]) < 1.5) and \
+					(std::abs(desired_bMe[1][3] - bMe[1][3]) < 1.5) and \
+					(std::abs(desired_bMe[2][3] - bMe[2][3]) < 1.5)) and
+					((std::abs(desired_bMe[0][3] - bMe[0][3]) > 0) or \
+					(std::abs(desired_bMe[1][3] - bMe[1][3]) > 0) or \
+					(std::abs(desired_bMe[2][3] - bMe[2][3]) > 0)))
+				{
+					moving = true;
+					ROS_INFO("Moving...");
+				}
+				else
+					ROS_INFO("Error: New position too far form the original position.");
+			}
+			else
+				ROS_INFO("Error: Unreachable position.");			
+			
+			//Send the parameters
+			if(moving)
+			{
+				//Check if it's almost there
+				if((std::abs(desired_bMe[0][3] - bMe[0][3]) > 0.01) || \
+					(std::abs(desired_bMe[1][3] - bMe[1][3]) > 0.01) || \
+					(std::abs(desired_bMe[2][3] - bMe[2][3]) > 0.01))
+				{
+					ROS_INFO("Info: Moving to desired position.");
+					send_joints[0]=next_joints[0]-current_joints[0];
+					send_joints[1]=next_joints[1]-current_joints[1];
+					send_joints[2]=next_joints[2]-current_joints[2];
+					ROS_INFO_STREAM (send_joints[0]<<"::"<<send_joints[1]<<"::"<<send_joints[2]);
+				}
+				else
+				{
+					ROS_INFO("Info: Position reached");
+					send_joints[0]=0;
+					send_joints[1]=0;
+					send_joints[2]=0;
+					moving=false;
+				}
+			}
+			else
+			{
+				ROS_INFO("Info: arm is not moving.");
+				send_joints[0]=0;
+				send_joints[1]=0;
+				send_joints[2]=0;		
+			}
+
+			robot->setJointVelocity(send_joints);
+		} //if ((handsDetected == 2) and rightHand)
+	}*/
+
+
+	// DEBUG AREA: print hand position and command to send to UWSim
+	if (DEBUG_spacenav_sub)
+	{
+		cout << "Joystick values: (" << twistValue->linear.x << ", " << twistValue->linear.y << \
+				", " << twistValue->linear.z << " :: " << twistValue->angular.z << ")" << endl;
+//		cout << odom << endl;
+/*		if ((currentPosition.pose.position.x == 0) and (currentPosition.pose.position.y == 0) and \
+			(currentPosition.pose.position.z == 0) and (currentPosition.pose.orientation.x == 0))
+			cout << "Robot stopped: the user's hand is not detected, is in the deadzone or does not move." << endl;
+		else
+		{
+			cout << "Robot movement(s): ";
+			if (currentPosition.pose.position.y != 0)
+			{
+				if (currentPosition.pose.position.y < 0)
+					cout << "Z-Axis: up " << currentPosition.pose.position.y << "|";
+				else
+					cout << "Z-Axis: down " << currentPosition.pose.position.y << "|";
+			}
+			if (sensorRangeAlarm)
+				cout << "Alarm: robot on seafloor |";
+			if (sensorPressureAlarm)
+				cout << "Alarm: robot on surface |";
+			if (currentPosition.pose.position.z != 0)
+			{
+				if (currentPosition.pose.position.z < 0)
+					cout << "X-Axis: back " << currentPosition.pose.position.z << "|";
+				else
+					cout << "X-Axis: front " << currentPosition.pose.position.z << "|";
+			}
+			if (currentPosition.pose.position.x != 0)
+			{
+				if (currentPosition.pose.position.x < 0)
+					cout << "Y-Axis: left " << currentPosition.pose.position.x << "|";
+				else
+					cout << "Y-Axis: right " << currentPosition.pose.position.x << "|";
+			}
+			if (currentPosition.pose.orientation.x != 0)
+			{
+				(currentPosition.pose.orientation.x < 0 ? cout << " Yaw:  counterclockwise" << endl : cout << " Yaw:  clockwise" << endl);
+				//cout << "roll = " << roll << " | pitch = " << pitch << " | yaw = " << yaw << endl;
+			}
+			else
+				cout << endl;
+		}*/
+	}
+}
+
 
 int main(int argc, char **argv)
 {

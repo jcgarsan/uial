@@ -22,6 +22,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <sensor_msgs/JointState.h>
 #include <sensor_msgs/Range.h>
+#include <sensor_msgs/Joy.h>
 #include <std_msgs/Bool.h>
 #include <underwater_sensor_msgs/Pressure.h>
 #include <tf/transform_broadcaster.h>
@@ -47,7 +48,10 @@ class Uial
 		bool robotStopped;
 		bool rightHand;
 		bool moving;
-		
+		bool gripperOpen;
+		bool gripperClose;
+		bool robotControl;
+	
 		ARM5Arm *robot;
 		vpHomogeneousMatrix desired_bMe, bMe;
 		vpColVector next_joints;
@@ -63,6 +67,9 @@ class Uial
 		void sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue);
 		void sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue);
 		void odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue);
+		void spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons);
+		void spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue);
+
 
 		ros::NodeHandle nh_;
 
@@ -78,6 +85,8 @@ class Uial
 		ros::Subscriber sensorPressure_sub_;
 		ros::Subscriber sensorRange_sub_;
 		ros::Subscriber odom_sub_;
+		ros::Subscriber spacenav_sub_;
+		ros::Subscriber spacenavButtons_sub_;
 
 		tf::Transform transform_init, transform_new;
 		tf::StampedTransform transform;

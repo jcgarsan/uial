@@ -48,15 +48,13 @@ class Uial
 		bool robotStopped;
 		bool rightHand;
 		bool moving;
-		bool gripperOpen;
-		bool gripperClose;
 		bool robotControl;
 	
 		ARM5Arm *robot;
 		vpHomogeneousMatrix desired_bMe, bMe;
 		vpColVector next_joints;
 
-		int numWaypoint, handsDetected;
+		int numWaypoint, handsDetected, gripperApperture, gripperRotation;
 
 		geometry_msgs::PoseStamped waypointsList[10];
 

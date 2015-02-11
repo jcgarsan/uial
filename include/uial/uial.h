@@ -57,6 +57,8 @@ class Uial
 		int numWaypoint, handsDetected, gripperApperture, gripperRotation;
 
 		geometry_msgs::PoseStamped waypointsList[10];
+		
+		ros::Time lastPress;
 
 
 	private:

@@ -33,7 +33,7 @@
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
 #define DEBUG_leap_sub 		0
-#define DEBUG_spacenav_sub	0
+#define DEBUG_spacenav_sub	1
 
 using namespace std;
 
@@ -77,6 +77,8 @@ Uial::Uial()
 	
 	robot=new ARM5Arm(nh_, "uwsim/joint_state", "uwsim/joint_state_command");
 
+	lastPress = ros::Time::now();
+
 }
 
 Uial::~Uial()
@@ -86,22 +88,28 @@ Uial::~Uial()
 
 void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
 {
-	if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
+	ros::Time currentPress = ros::Time::now();
+	ros::Duration difTime = currentPress - lastPress;
+	if (difTime.toSec() > 0.5)
 	{
-		if (gripperRotation < 9)
-			gripperRotation++;
-		else
-			gripperRotation = 0;
+		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
+		{
+			if (gripperRotation < 2)
+				gripperRotation++;
+			else
+				gripperRotation = 0;
+		}
+		if ((spacenavButtons->buttons[0] == 0) and (spacenavButtons->buttons[1] == 1)) 
+		{
+			if (gripperApperture < 2)
+				gripperApperture++;
+			else
+				gripperApperture = 0;
+		}
+		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 1)) 
+			robotControl = !robotControl;
+		lastPress = currentPress;
 	}
-	if ((spacenavButtons->buttons[0] == 0) and (spacenavButtons->buttons[1] == 1)) 
-	{
-		if (gripperApperture < 9)
-			gripperApperture++;
-		else
-			gripperApperture = 0;
-	}
-	if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 1)) 
-		robotControl = !robotControl;
 }
 
 void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
@@ -795,15 +803,15 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 		}
 		
 		//Gripper rotation & apperture control
-		if (gripperRotation < 4)
+		if (gripperRotation == 0)
 			send_joints[3] = 0;
-		else if (gripperRotation < 7)
+		else if (gripperRotation == 1)
 			send_joints[3] = 0.05;
 		else
 			send_joints[3] = -0.05;
-		if (gripperApperture < 4)
+		if (gripperApperture == 0)
 			send_joints[4] = 0;
-		else if (gripperApperture < 7)
+		else if (gripperApperture == 1)
 			send_joints[4] = 0.05;
 		else
 			send_joints[4] = -0.05;		

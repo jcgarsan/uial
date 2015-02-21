@@ -69,6 +69,7 @@ class Uial
 		void odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue);
 		void spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons);
 		void spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue);
+		void joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick);
 
 
 		ros::NodeHandle nh_;
@@ -87,6 +88,7 @@ class Uial
 		ros::Subscriber odom_sub_;
 		ros::Subscriber spacenav_sub_;
 		ros::Subscriber spacenavButtons_sub_;
+		ros::Subscriber joystick_sub_;
 
 		tf::Transform transform_init, transform_new;
 		tf::StampedTransform transform;

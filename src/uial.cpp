@@ -22,9 +22,9 @@
 #include <cmath>  
 
 //CIRS scene
-#define TOPIC  "/dataNavigator"
+//#define TOPIC  "/dataNavigator"
 //shipweck scene
-//#define TOPIC  "/dataNavigator_G500RAUVI"		
+#define TOPIC  "/dataNavigator_G500RAUVI"		
 
 #define pressureThreshold	0.5
 #define rangeThreshold 		1.0
@@ -33,7 +33,8 @@
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
 #define DEBUG_leap_sub 		0
-#define DEBUG_spacenav_sub	1
+#define DEBUG_spacenav_sub	0
+#define DEBUG_joystick_sub	0
 
 using namespace std;
 
@@ -74,6 +75,7 @@ Uial::Uial()
 	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
 	spacenav_sub_ = nh_.subscribe<geometry_msgs::Twist>("spacenav/twist", 1, &Uial::spacenavCallback, this);
 	spacenavButtons_sub_ = nh_.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
+	joystick_sub_ = nh_.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::joystickCallback, this);
 	
 	robot=new ARM5Arm(nh_, "uwsim/joint_state", "uwsim/joint_state_command");
 
@@ -85,6 +87,7 @@ Uial::~Uial()
 {
 	//Destructor
 }
+
 
 void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
 {
@@ -111,6 +114,7 @@ void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavBut
 		lastPress = currentPress;
 	}
 }
+
 
 void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
 {
@@ -828,6 +832,250 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			 << ", robotControl = " << robotControl << endl;
 
 	}
+}
+
+
+void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
+{
+	int num;
+	double roll, pitch, yaw;
+	nav_msgs::Odometry odom;
+	sensor_msgs::JointState js;
+	vpColVector current_joints(5), send_joints(5);
+
+	if (robotControl)
+	{
+		//joystick X-axis -> Robot Y-axis
+		if ((joystick->axes[0] <= 0.4) and (joystick->axes[0] >= -0.4))
+			currentPosition.pose.position.x = 0.0;
+		else
+		{
+			if (joystick->axes[0] > 0.4)
+			{
+				if (joystick->axes[0] < 0.7)
+						currentPosition.pose.position.x = 0.3;
+				else  //(joystick->axes[0] >= 200)
+					currentPosition.pose.position.x = 0.6;
+			}
+			else
+			{
+				if (joystick->axes[0] > -0.7)
+						currentPosition.pose.position.x = -0.3;
+				else  //(joystick->axes[0] <= -200)
+					currentPosition.pose.position.x = -0.6;
+			}
+		}
+		//joystick Z-axis -> Robot Z-axis
+		if ((joystick->axes[3] <= 0.4) and (joystick->axes[3] >= -0.4))
+			currentPosition.pose.position.y = 0.0;
+		else
+		{
+			if (joystick->axes[0] > 0.4)
+			{
+				if (joystick->axes[0] < 0.7)
+						currentPosition.pose.position.y = -0.3;
+				else
+					currentPosition.pose.position.y = -0.6;
+			}
+			else
+			{
+				if (joystick->axes[0] > -0.7)
+						currentPosition.pose.position.y = 0.3;
+				else
+					currentPosition.pose.position.y = 0.6;
+			}
+		}
+		//joystick Y-axis (lever) -> Robot Y-axis
+		if ((joystick->axes[1] <= 0.4) and (joystick->axes[1] >= -0.4))
+			currentPosition.pose.position.z = 0.0;
+		else
+		{
+			if (joystick->axes[0] > 0.4)
+			{
+				if (!sensorPressureAlarm)
+				{
+					if (joystick->axes[0] < 0.7)
+						currentPosition.pose.position.z = -0.3;
+					else
+						currentPosition.pose.position.z = -0.6;
+				}
+			}
+			else if (!sensorRangeAlarm)
+			{
+				if (joystick->axes[0] > -0.7)
+						currentPosition.pose.position.z = 0.3;
+				else
+					currentPosition.pose.position.z = 0.6;
+			}
+			if (sensorRangeAlarm)
+				cout << "Alarm: robot on seafloor." << endl;
+			if (sensorPressureAlarm)
+				cout << "Alarm: robot on surface." << endl;
+		}
+		
+		//Rotation
+		if ((joystick->axes[2] <= 0.5) and (joystick->axes[2] >= -0.5))
+			currentPosition.pose.orientation.z = 0.0;
+		else
+		{
+			if (joystick->axes[2] > 0.5)
+				currentPosition.pose.orientation.z = -0.3;
+			else
+				currentPosition.pose.orientation.z = 0.3;
+		}
+
+		//Assign the calculated values into the publisher
+		odom.twist.twist.linear.x =  currentPosition.pose.position.z;
+		odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+		odom.twist.twist.linear.z =  currentPosition.pose.position.y;
+		odom.twist.twist.angular.x = 0; //roll;
+		odom.twist.twist.angular.y = 0; //pitch;
+		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+		for (int i=0; i<36; i++)
+		{
+			odom.twist.covariance[i]=0;
+			odom.pose.covariance[i]=0;
+		}
+		vel_pub_.publish(odom);			
+	}
+/*	else //Arm control
+	{
+		//SpaceNav X-axis -> Robot X-axis
+		if ((twistValue->linear.x <= 200) and (twistValue->linear.x >= -200))
+			currentPosition.pose.position.x = 0.0;
+		else
+		{
+			if (twistValue->linear.x < 200)
+				currentPosition.pose.position.x = -0.05;
+			else
+				currentPosition.pose.position.x = 0.05;
+		}
+		//SpaceNav Y-axis -> Robot Y-axis
+		if ((twistValue->linear.y <= 200) and (twistValue->linear.y >= -200))
+			currentPosition.pose.position.y = 0.0;
+		else
+		{
+			if (twistValue->linear.y > 200)
+				currentPosition.pose.position.y = -0.05;
+			else
+				currentPosition.pose.position.y = 0.05;
+		}
+		//SpaceNav Z-axis -> Robot Z-axis
+		if ((twistValue->linear.z <= 200) and (twistValue->linear.z >= -200))
+			currentPosition.pose.position.z = 0.0;
+		else
+		{
+			if (twistValue->linear.z > 200)
+				currentPosition.pose.position.z = -0.05;
+			else
+				currentPosition.pose.position.z = 0.05;
+		}
+		//SpaceNav rotation
+		if ((twistValue->angular.z <= 100) and (twistValue->angular.z >= -100))
+			currentPosition.pose.orientation.z = 0.0;
+		else
+		{
+			if (twistValue->angular.z > 100)
+				currentPosition.pose.orientation.z = 0.05;
+			else
+				currentPosition.pose.orientation.z = -0.05;
+		}
+			
+		if(robot->getJointValues(current_joints))
+		{		
+			bMe=robot->directKinematics(current_joints);
+			cout << "Before bMe" << endl << bMe << endl;
+		}
+		
+		//Calculate the base-end effector matrix
+		if (!moving)
+		{
+			desired_bMe = bMe;
+			desired_bMe[0][3]-= currentPosition.pose.position.x;
+			desired_bMe[1][3]-= currentPosition.pose.orientation.z; 
+			desired_bMe[2][3]-= currentPosition.pose.position.y;
+			next_joints = robot->armIK(desired_bMe);
+			cout << "Desired joints" << endl << next_joints << endl;
+			cout << "Desired bMe" << endl << desired_bMe << endl;
+		}			
+			
+		//If valid joints and reasonable new position ... ask to MOVE
+		if ((next_joints[0] > -1.57) and (next_joints[0] < 2.1195) and (next_joints[1] > 0) and \
+			(next_joints[1] < 1.58665) and (next_joints[2] > 0) and (next_joints[2] < 2.15294))			// join limits
+		{ //dist (m) entre current y desire
+			if (((std::abs(desired_bMe[0][3] - bMe[0][3]) < 1.5) and \
+				(std::abs(desired_bMe[1][3] - bMe[1][3]) < 1.5) and \
+				(std::abs(desired_bMe[2][3] - bMe[2][3]) < 1.5)) and
+				((std::abs(desired_bMe[0][3] - bMe[0][3]) > 0) or \
+				(std::abs(desired_bMe[1][3] - bMe[1][3]) > 0) or \
+				(std::abs(desired_bMe[2][3] - bMe[2][3]) > 0)))
+			{
+				moving = true;
+				ROS_INFO("Moving...");
+			}
+			else
+				ROS_INFO("Error: New position too far form the original position.");
+		}
+		else
+			ROS_INFO("Error: Unreachable position.");			
+		
+		//Send the parameters
+		if(moving)
+		{
+			//Check if it's almost there
+			if((std::abs(desired_bMe[0][3] - bMe[0][3]) > 0.01) || \
+				(std::abs(desired_bMe[1][3] - bMe[1][3]) > 0.01) || \
+				(std::abs(desired_bMe[2][3] - bMe[2][3]) > 0.01))
+			{
+				ROS_INFO("Info: Moving to desired position.");
+				send_joints[0]=next_joints[0]-current_joints[0];
+				send_joints[1]=next_joints[1]-current_joints[1];
+				send_joints[2]=next_joints[2]-current_joints[2];
+				ROS_INFO_STREAM (send_joints[0]<<"::"<<send_joints[1]<<"::"<<send_joints[2]);
+			}
+			else
+			{
+				ROS_INFO("Info: Position reached");
+				send_joints[0]=0;
+				send_joints[1]=0;
+				send_joints[2]=0;
+				moving=false;
+			}
+		}
+		else
+		{
+			ROS_INFO("Info: arm is not moving.");
+			send_joints[0]=0;
+			send_joints[1]=0;
+			send_joints[2]=0;		
+		}
+		
+		//Gripper rotation & apperture control
+		if (gripperRotation == 0)
+			send_joints[3] = 0;
+		else if (gripperRotation == 1)
+			send_joints[3] = 0.05;
+		else
+			send_joints[3] = -0.05;
+		if (gripperApperture == 0)
+			send_joints[4] = 0;
+		else if (gripperApperture == 1)
+			send_joints[4] = 0.05;
+		else
+			send_joints[4] = -0.05;		
+
+		robot->setJointVelocity(send_joints);
+	}
+*/
+	// DEBUG AREA: print hand position and command to send to UWSim
+/*	if (DEBUG_joystick_sub)
+	{
+		cout << "Joystick values: (" << twistValue->linear.x << ", " << twistValue->linear.y << \
+				", " << twistValue->linear.z << " :: " << twistValue->angular.z << ")" << endl;
+		cout << "gripperRotation = " << gripperRotation << ", gripperApperture = " << gripperApperture \
+			 << ", robotControl = " << robotControl << endl;
+
+	}*/
 }
 
 

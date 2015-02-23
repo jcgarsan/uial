@@ -845,7 +845,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 
 	if (robotControl)
 	{
-		//joystick X-axis -> Robot Y-axis
+		//joystick X-axis -> Robot Z-axis
 		if ((joystick->axes[0] <= 0.4) and (joystick->axes[0] >= -0.4))
 			currentPosition.pose.position.x = 0.0;
 		else
@@ -865,47 +865,47 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 					currentPosition.pose.position.x = -0.6;
 			}
 		}
-		//joystick Z-axis -> Robot Z-axis
+		//joystick Z-axis -> Robot X-axis
 		if ((joystick->axes[3] <= 0.4) and (joystick->axes[3] >= -0.4))
-			currentPosition.pose.position.y = 0.0;
+			currentPosition.pose.position.z = 0.0;
 		else
 		{
-			if (joystick->axes[0] > 0.4)
+			if (joystick->axes[3] > 0.4)
 			{
-				if (joystick->axes[0] < 0.7)
-						currentPosition.pose.position.y = -0.3;
+				if (joystick->axes[3] < 0.7)
+						currentPosition.pose.position.z = 0.3;
 				else
-					currentPosition.pose.position.y = -0.6;
+					currentPosition.pose.position.z = 0.6;
 			}
 			else
 			{
-				if (joystick->axes[0] > -0.7)
-						currentPosition.pose.position.y = 0.3;
+				if (joystick->axes[3] > -0.7)
+						currentPosition.pose.position.z = -0.3;
 				else
-					currentPosition.pose.position.y = 0.6;
+					currentPosition.pose.position.z = -0.6;
 			}
 		}
 		//joystick Y-axis (lever) -> Robot Y-axis
 		if ((joystick->axes[1] <= 0.4) and (joystick->axes[1] >= -0.4))
-			currentPosition.pose.position.z = 0.0;
+			currentPosition.pose.position.y = 0.0;
 		else
 		{
-			if (joystick->axes[0] > 0.4)
+			if (joystick->axes[1] > 0.4)
 			{
 				if (!sensorPressureAlarm)
 				{
-					if (joystick->axes[0] < 0.7)
-						currentPosition.pose.position.z = -0.3;
+					if (joystick->axes[1] < 0.7)
+						currentPosition.pose.position.y = -0.3;
 					else
-						currentPosition.pose.position.z = -0.6;
+						currentPosition.pose.position.y = -0.6;
 				}
 			}
 			else if (!sensorRangeAlarm)
 			{
-				if (joystick->axes[0] > -0.7)
-						currentPosition.pose.position.z = 0.3;
+				if (joystick->axes[1] > -0.7)
+						currentPosition.pose.position.y = 0.3;
 				else
-					currentPosition.pose.position.z = 0.6;
+					currentPosition.pose.position.y = 0.6;
 			}
 			if (sensorRangeAlarm)
 				cout << "Alarm: robot on seafloor." << endl;
@@ -919,15 +919,15 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		else
 		{
 			if (joystick->axes[2] > 0.5)
-				currentPosition.pose.orientation.z = -0.3;
-			else
 				currentPosition.pose.orientation.z = 0.3;
+			else
+				currentPosition.pose.orientation.z = -0.3;
 		}
 
 		//Assign the calculated values into the publisher
-		odom.twist.twist.linear.x =  currentPosition.pose.position.z;
+		odom.twist.twist.linear.x =  currentPosition.pose.position.y;
 		odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-		odom.twist.twist.linear.z =  currentPosition.pose.position.y;
+		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
 		odom.twist.twist.angular.x = 0; //roll;
 		odom.twist.twist.angular.y = 0; //pitch;
 		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw

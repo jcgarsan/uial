@@ -24,6 +24,7 @@
 #include <sensor_msgs/Range.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/Bool.h>
+#include "std_msgs/Float64MultiArray.h"
 #include <underwater_sensor_msgs/Pressure.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
@@ -81,6 +82,8 @@ class Uial
 		geometry_msgs::PoseStamped currentPosition;
 
 		ros::Publisher  vel_pub_;
+		ros::Publisher  acc_pub_;
+
 		ros::Subscriber hand_sub_;
 		ros::Subscriber leap_sub_;
 		ros::Subscriber sensorPressure_sub_;

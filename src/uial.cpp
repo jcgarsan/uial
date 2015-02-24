@@ -63,11 +63,14 @@ Uial::Uial()
 	numWaypoint 		= 1;
 	gripperApperture	= 0;
 	gripperRotation		= 0;
+	
 
 	listener = new (tf::TransformListener);
 
 	//publisher and subscriber initialization
-	vel_pub_ = nh_.advertise<nav_msgs::Odometry>(TOPIC,1);
+	vel_pub_ = nh_.advertise<nav_msgs::Odometry>(TOPIC, 1);
+	acc_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
+	
 	hand_sub_ = nh_.subscribe<sensor_msgs::JointState>("leap_tracker/joint_state_out", 1, &Uial::leapHandCallback, this);
 	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
@@ -840,12 +843,19 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	int num;
 	double roll, pitch, yaw;
 	nav_msgs::Odometry odom;
+	double thrusters[5];
 	sensor_msgs::JointState js;
 	vpColVector current_joints(5), send_joints(5);
+	std_msgs::Float64MultiArray thrustersMsg;
 
+	for (int i=0; i<5; i++)
+		thrusters[i] = 0.0;
+
+	thrustersMsg.data.clear();
+	
 	if (robotControl)
 	{
-		//joystick X-axis -> Robot Z-axis
+		//joystick X-axis -> Robot Y-axis
 		if ((joystick->axes[0] <= 0.4) and (joystick->axes[0] >= -0.4))
 			currentPosition.pose.position.x = 0.0;
 		else
@@ -854,18 +864,21 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 			{
 				if (joystick->axes[0] < 0.7)
 						currentPosition.pose.position.x = 0.3;
-				else  //(joystick->axes[0] >= 200)
+				else  //(joystick->axes[0] >= 0.7)
 					currentPosition.pose.position.x = 0.6;
+				thrusters[4] = 0.4;
+					
 			}
 			else
 			{
 				if (joystick->axes[0] > -0.7)
 						currentPosition.pose.position.x = -0.3;
-				else  //(joystick->axes[0] <= -200)
+				else  //(joystick->axes[0] <= -0.7)
 					currentPosition.pose.position.x = -0.6;
+				thrusters[4] = -0.4;
 			}
 		}
-		//joystick Z-axis -> Robot X-axis
+		//joystick Z-axis -> Robot Z-axis
 		if ((joystick->axes[3] <= 0.4) and (joystick->axes[3] >= -0.4))
 			currentPosition.pose.position.z = 0.0;
 		else
@@ -876,6 +889,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.z = 0.3;
 				else
 					currentPosition.pose.position.z = 0.6;
+				thrusters[2] = -0.4;
+				thrusters[3] = -0.4;
 			}
 			else
 			{
@@ -883,9 +898,11 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.z = -0.3;
 				else
 					currentPosition.pose.position.z = -0.6;
+				thrusters[2] = 0.4;
+				thrusters[3] = 0.4;
 			}
 		}
-		//joystick Y-axis (lever) -> Robot Y-axis
+		//joystick Y-axis (lever) -> Robot X-axis
 		if ((joystick->axes[1] <= 0.4) and (joystick->axes[1] >= -0.4))
 			currentPosition.pose.position.y = 0.0;
 		else
@@ -898,6 +915,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.y = -0.3;
 					else
 						currentPosition.pose.position.y = -0.6;
+					thrusters[0] = 0.4;
+					thrusters[1] = 0.4;
 				}
 			}
 			else if (!sensorRangeAlarm)
@@ -906,6 +925,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.y = 0.3;
 				else
 					currentPosition.pose.position.y = 0.6;
+				thrusters[0] = -0.4;
+				thrusters[1] = -0.4;
 			}
 			if (sensorRangeAlarm)
 				cout << "Alarm: robot on seafloor." << endl;
@@ -919,9 +940,17 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		else
 		{
 			if (joystick->axes[2] > 0.5)
+			{
 				currentPosition.pose.orientation.z = 0.3;
+				thrusters[0] = -0.4;
+				thrusters[1] = 0.4;
+			}
 			else
+			{
 				currentPosition.pose.orientation.z = -0.3;
+				thrusters[0] = 0.4;
+				thrusters[1] = -0.4;
+			}
 		}
 
 		//Assign the calculated values into the publisher
@@ -936,7 +965,11 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 			odom.twist.covariance[i]=0;
 			odom.pose.covariance[i]=0;
 		}
-		vel_pub_.publish(odom);			
+		vel_pub_.publish(odom);
+		
+		for (int i=0; i<5; i++)
+			thrustersMsg.data.push_back(thrusters[i]);
+		acc_pub_.publish(thrustersMsg);
 	}
 /*	else //Arm control
 	{

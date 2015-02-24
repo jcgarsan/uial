@@ -221,8 +221,10 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 {
 	int num;
 	double roll, pitch, yaw;
-	nav_msgs::Odometry odom;
+	double thrusters[5];
 	sensor_msgs::JointState js;
+	std_msgs::Float64MultiArray thrustersMsg;
+	nav_msgs::Odometry odom;
 	vpColVector current_joints(5), send_joints(5);
 
 	//Initial user hand position
@@ -389,6 +391,11 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 				odom.pose.covariance[i]=0;
 			}
 			vel_pub_.publish(odom);			
+			
+			for (int i=0; i<5; i++)
+				thrustersMsg.data.push_back(thrusters[i]);
+			acc_pub_.publish(thrustersMsg);
+	
 		}//((handsDetected == 1) and rightHand)
 		
 		//If there are two hands, the user controls the end effector
@@ -599,8 +606,10 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 {
 	int num;
 	double roll, pitch, yaw;
-	nav_msgs::Odometry odom;
+	double thrusters[5];
 	sensor_msgs::JointState js;
+	std_msgs::Float64MultiArray thrustersMsg;
+	nav_msgs::Odometry odom;
 	vpColVector current_joints(5), send_joints(5);
 
 	if (robotControl)
@@ -616,6 +625,8 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 						currentPosition.pose.position.x = 0.3;
 				else  //(twistValue->linear.x >= 200)
 					currentPosition.pose.position.x = 0.6;
+				thrusters[0] = -0.4;
+				thrusters[1] = -0.4;
 			}
 			else
 			{
@@ -623,6 +634,8 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 						currentPosition.pose.position.x = -0.3;
 				else  //(twistValue->linear.x <= -200)
 					currentPosition.pose.position.x = -0.6;
+				thrusters[0] = 0.4;
+				thrusters[1] = 0.4;
 			}
 		}
 		//SpaceNav Y-axis -> Robot Y-axis
@@ -636,6 +649,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 						currentPosition.pose.position.y = -0.3;
 				else
 					currentPosition.pose.position.y = -0.6;
+				thrusters[4] = 0.4;
 			}
 			else
 			{
@@ -643,6 +657,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 						currentPosition.pose.position.y = 0.3;
 				else
 					currentPosition.pose.position.y = 0.6;
+				thrusters[4] = -0.4;
 			}
 		}
 		//SpaceNav Z-axis -> Robot Z-axis
@@ -658,6 +673,8 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 						currentPosition.pose.position.z = -0.3;
 					else
 						currentPosition.pose.position.z = -0.6;
+					thrusters[2] = 0.4;
+					thrusters[3] = 0.4;
 				}
 			}
 			else if (!sensorRangeAlarm)
@@ -666,6 +683,8 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 						currentPosition.pose.position.z = 0.3;
 				else
 					currentPosition.pose.position.z = 0.6;
+				thrusters[2] = -0.4;
+				thrusters[3] = -0.4;
 			}
 			if (sensorRangeAlarm)
 				cout << "Alarm: robot on seafloor." << endl;
@@ -678,9 +697,17 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 		else
 		{
 			if (twistValue->angular.z > 100)
+			{
 				currentPosition.pose.orientation.z = -0.3;
+				thrusters[0] = 0.4;
+				thrusters[1] = -0.4;
+			}
 			else
+			{
 				currentPosition.pose.orientation.z = 0.3;
+				thrusters[0] = -0.4;
+				thrusters[1] = 0.4;
+			}
 		}
 
 		//Assign the calculated values into the publisher
@@ -696,6 +723,10 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			odom.pose.covariance[i]=0;
 		}
 		vel_pub_.publish(odom);			
+
+		for (int i=0; i<5; i++)
+			thrustersMsg.data.push_back(thrusters[i]);
+		acc_pub_.publish(thrustersMsg);
 	}
 	else //Arm control
 	{
@@ -842,11 +873,11 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 {
 	int num;
 	double roll, pitch, yaw;
-	nav_msgs::Odometry odom;
 	double thrusters[5];
 	sensor_msgs::JointState js;
-	vpColVector current_joints(5), send_joints(5);
 	std_msgs::Float64MultiArray thrustersMsg;
+	nav_msgs::Odometry odom;
+	vpColVector current_joints(5), send_joints(5);
 
 	for (int i=0; i<5; i++)
 		thrusters[i] = 0.0;
@@ -867,7 +898,6 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 				else  //(joystick->axes[0] >= 0.7)
 					currentPosition.pose.position.x = 0.6;
 				thrusters[4] = 0.4;
-					
 			}
 			else
 			{

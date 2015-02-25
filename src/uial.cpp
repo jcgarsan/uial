@@ -21,10 +21,7 @@
 #include <visp/vpHomogeneousMatrix.h>
 #include <cmath>  
 
-//CIRS scene
-//#define TOPIC  "/dataNavigator"
-//shipweck scene
-#define TOPIC  "/dataNavigator_G500RAUVI"		
+#define TOPIC  "/dataNavigator"
 
 #define pressureThreshold	0.5
 #define rangeThreshold 		1.0
@@ -282,22 +279,38 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			{
 				if (posstamped->pose.position.y < 80)
 					if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 80) and (posstamped->pose.position.y >= 55))
+					{
 							currentPosition.pose.position.y = 0.3;
+							thrusters[0] = 0.4;
+							thrusters[1] = 0.4;
+					}
 					else
 					{
 						if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 55))
+						{
 							currentPosition.pose.position.y = 0.6;
+							thrusters[0] = 0.4;
+							thrusters[1] = 0.4;
+						}
 						else //sensorRangeAlarm = true
 							currentPosition.pose.position.y = 0.0;
 					}
 				else //User's hand is upper
 				{
 					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 120) and (posstamped->pose.position.y <= 170))
+					{
 						currentPosition.pose.position.y = -0.3;
+						thrusters[0] = -0.4;
+						thrusters[1] = -0.4;
+					}
 					else
 					{
 						if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 170))
+						{
 							currentPosition.pose.position.y = -0.6;
+							thrusters[0] = -0.4;
+							thrusters[1] = -0.4;
+						}
 						else //sensorPressureAlarm = true
 							currentPosition.pose.position.y = 0.0;
 					}
@@ -313,17 +326,33 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			else
 			{
 				if ((posstamped->pose.position.z < -10) and (posstamped->pose.position.z <= -35))
+				{
 					currentPosition.pose.position.z = 0.6;
+					thrusters[2] = 0.4;
+					thrusters[3] = 0.4;
+				}
 				else
 				{
 					if (posstamped->pose.position.z < -10)
+					{
 						currentPosition.pose.position.z = 0.3;
+						thrusters[2] = 0.4;
+						thrusters[3] = 0.4;
+					}
 					else
 					{
 						if ((posstamped->pose.position.z > 15) and (posstamped->pose.position.z <= 70))
+						{
 							currentPosition.pose.position.z = -0.3;
+							thrusters[2] = -0.4;
+							thrusters[3] = -0.4;
+						}
 						else
+						{
 							currentPosition.pose.position.z = -0.6;
+							thrusters[2] = -0.4;
+							thrusters[3] = -0.4;
+						}
 					}
 				}
 			}
@@ -333,17 +362,29 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			else
 			{
 				if ((posstamped->pose.position.x > 25.0) and (posstamped->pose.position.x <= 90.0))
+				{
 					currentPosition.pose.position.x = 0.3;
+					thrusters[4] = 0.4;
+				}
 				else
 				{
 					if (posstamped->pose.position.x > 90.0) //and (posstamped->pose.position.x > 70.0))
+					{
 						currentPosition.pose.position.x = 0.6;
+						thrusters[4] = 0.4;
+					}
 					else
 					{
 						if ((posstamped->pose.position.x < -25.0) and (posstamped->pose.position.x <= -90.0))
+						{
 							currentPosition.pose.position.x = -0.6;
+							thrusters[4] = -0.4;
+						}
 						else
+						{
 							currentPosition.pose.position.x = -0.3;
+							thrusters[4] = -0.4;
+						}
 					}
 				}
 			}
@@ -369,13 +410,19 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			if (roll < -0.5)
 			{
 				currentPosition.pose.orientation.x = -0.2;
+				thrusters[0] = 0.4;
+				thrusters[1] = -0.4;
 			}
 			else
 			{
 				if ((roll >= -0.5) and (roll <= 0.5))
 					currentPosition.pose.orientation.x = 0.0;			
 				else
+				{
 					currentPosition.pose.orientation.x = 0.2;
+					thrusters[0] = -0.4;
+					thrusters[1] = 0.4;
+				}
 			}
 			
 			//Assign the calculated values into the publisher

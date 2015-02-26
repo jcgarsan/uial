@@ -29,9 +29,9 @@
 //DEBUG Flags
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
-#define DEBUG_leap_sub 		0
+#define DEBUG_leap_sub 		1
 #define DEBUG_spacenav_sub	0
-#define DEBUG_joystick_sub	0
+#define DEBUG_joystick_sub	1
 
 using namespace std;
 
@@ -1178,14 +1178,12 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	}
 */
 	// DEBUG AREA: print hand position and command to send to UWSim
-/*	if (DEBUG_joystick_sub)
+	if (DEBUG_joystick_sub)
 	{
-		cout << "Joystick values: (" << twistValue->linear.x << ", " << twistValue->linear.y << \
-				", " << twistValue->linear.z << " :: " << twistValue->angular.z << ")" << endl;
-		cout << "gripperRotation = " << gripperRotation << ", gripperApperture = " << gripperApperture \
-			 << ", robotControl = " << robotControl << endl;
+		cout << "Joystick values: (" << joystick->axes[0] << ", " << joystick->axes[1] << \
+				", " << joystick->axes[3] << " :: " << joystick->axes[2] << ")" << endl;
 
-	}*/
+	}
 }
 
 

@@ -33,6 +33,16 @@
 #define DEBUG_spacenav_sub	0
 #define DEBUG_joystick_sub	1
 
+//Acceleration or velocities
+#define accelerations		1
+
+
+//Device to be used
+#define leapMotionDev		0
+#define joystickDev			1
+#define spaceMouseDev		0
+
+
 using namespace std;
 
 
@@ -48,37 +58,49 @@ Uial::Uial()
 	currentPosition.pose.orientation  = q0;
 	previousPosition.pose.position 	  = p0;
 	previousPosition.pose.orientation = q0;
-	sensorRangeAlarm 	= false;
-	sensorPressureAlarm = false;
-	handIsOpen 			= false;
-	rotationMode 		= false;
-	selectWaypoint 		= false;
-	robotStopped		= false;
-	rightHand			= false;
-	moving				= false;
-	robotControl		= true;
-	numWaypoint 		= 1;
-	gripperApperture	= 0;
-	gripperRotation		= 0;
+	sensorRangeAlarm 		  = false;
+	sensorPressureAlarm 		  = false;
+	handIsOpen 			  = false;
+	rotationMode 			  = false;
+	selectWaypoint 			  = false;
+	robotStopped			  = false;
+	rightHand			  = false;
+	moving				  = false;
+	robotControl			  = true;
+	numWaypoint 			  = 1;
+	gripperApperture		  = 0;
+	gripperRotation			  = 0;
 	
 
 	listener = new (tf::TransformListener);
 
-	//publisher and subscriber initialization
-	vel_pub_ = nh_.advertise<nav_msgs::Odometry>(TOPIC, 1);
-	acc_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
+	//Publisher initialization
+	if (!accelerations)
+	        vel_pub_ = nh_.advertise<nav_msgs::Odometry>("/dataNavigator", 1);
+	else
+        	acc_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
 	
-	hand_sub_ = nh_.subscribe<sensor_msgs::JointState>("leap_tracker/joint_state_out", 1, &Uial::leapHandCallback, this);
-	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
+	//Subscriber initialization by device to be used
+	if (leapMotionDev)
+	{
+        	hand_sub_ = nh_.subscribe<sensor_msgs::JointState>("leap_tracker/joint_state_out", 1, &Uial::leapHandCallback, this);
+        	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
+        }
+        if (joystickDev)
+                joystick_sub_ = nh_.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::joystickCallback, this); 
+        if (spaceMouseDev)
+        {
+                spacenav_sub_ = nh_.subscribe<geometry_msgs::Twist>("spacenav/twist", 1, &Uial::spacenavCallback, this);
+                spacenavButtons_sub_ = nh_.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
+        }
+        
+        //Subscriber initialization for sensors        
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
 	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
-	spacenav_sub_ = nh_.subscribe<geometry_msgs::Twist>("spacenav/twist", 1, &Uial::spacenavCallback, this);
-	spacenavButtons_sub_ = nh_.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
-	joystick_sub_ = nh_.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::joystickCallback, this);
+
 	
 	robot=new ARM5Arm(nh_, "uwsim/joint_state", "uwsim/joint_state_command");
-
 	lastPress = ros::Time::now();
 
 }
@@ -425,23 +447,28 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 				}
 			}
 			
-			//Assign the calculated values into the publisher
-			odom.twist.twist.linear.x =  currentPosition.pose.position.z;
-			odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-			odom.twist.twist.linear.z =  currentPosition.pose.position.y;
-			odom.twist.twist.angular.x = 0; //roll;
-			odom.twist.twist.angular.y = 0; //pitch;
-			odom.twist.twist.angular.z = currentPosition.pose.orientation.x; //yaw
-			for (int i=0; i<36; i++)
+			if (accelerations)
 			{
-				odom.twist.covariance[i]=0;
-				odom.pose.covariance[i]=0;
-			}
-			vel_pub_.publish(odom);			
-			
-			for (int i=0; i<5; i++)
-				thrustersMsg.data.push_back(thrusters[i]);
-			acc_pub_.publish(thrustersMsg);
+        			for (int i=0; i<5; i++)
+	        			thrustersMsg.data.push_back(thrusters[i]);
+		        	acc_pub_.publish(thrustersMsg);
+                        }
+                        else
+                        {
+                                //Assign the calculated values into the publisher
+                                odom.twist.twist.linear.x =  currentPosition.pose.position.z;
+                                odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+                                odom.twist.twist.linear.z =  currentPosition.pose.position.y;
+                                odom.twist.twist.angular.x = 0; //roll;
+                                odom.twist.twist.angular.y = 0; //pitch;
+                                odom.twist.twist.angular.z = currentPosition.pose.orientation.x; //yaw
+                                for (int i=0; i<36; i++)
+                                {
+                                        odom.twist.covariance[i]=0;
+                                        odom.pose.covariance[i]=0;
+                                }
+                                vel_pub_.publish(odom);                        
+                        }
 	
 		}//((handsDetected == 1) and rightHand)
 		
@@ -757,23 +784,28 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			}
 		}
 
-		//Assign the calculated values into the publisher
-		odom.twist.twist.linear.x =  currentPosition.pose.position.x;
-		odom.twist.twist.linear.y =  currentPosition.pose.position.y;
-		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-		odom.twist.twist.angular.x = 0; //roll;
-		odom.twist.twist.angular.y = 0; //pitch;
-		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-		for (int i=0; i<36; i++)
+		if (accelerations)
 		{
-			odom.twist.covariance[i]=0;
-			odom.pose.covariance[i]=0;
+                        for (int i=0; i<5; i++)
+                                thrustersMsg.data.push_back(thrusters[i]);
+                        acc_pub_.publish(thrustersMsg);		
 		}
-		vel_pub_.publish(odom);			
-
-		for (int i=0; i<5; i++)
-			thrustersMsg.data.push_back(thrusters[i]);
-		acc_pub_.publish(thrustersMsg);
+		else
+		{
+        		//Assign the calculated values into the publisher
+        		odom.twist.twist.linear.x =  currentPosition.pose.position.x;
+        		odom.twist.twist.linear.y =  currentPosition.pose.position.y;
+        		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+        		odom.twist.twist.angular.x = 0; //roll;
+        		odom.twist.twist.angular.y = 0; //pitch;
+        		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+        		for (int i=0; i<36; i++)
+        		{
+        			odom.twist.covariance[i]=0;
+        			odom.pose.covariance[i]=0;
+        		}
+        		vel_pub_.publish(odom);			
+		}
 	}
 	else //Arm control
 	{
@@ -1030,23 +1062,28 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 			}
 		}
 
-		//Assign the calculated values into the publisher
-		odom.twist.twist.linear.x =  currentPosition.pose.position.y;
-		odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-		odom.twist.twist.angular.x = 0; //roll;
-		odom.twist.twist.angular.y = 0; //pitch;
-		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-		for (int i=0; i<36; i++)
+		if (accelerations)
 		{
-			odom.twist.covariance[i]=0;
-			odom.pose.covariance[i]=0;
+		        for (int i=0; i<5; i++)
+		                thrustersMsg.data.push_back(thrusters[i]);
+                        acc_pub_.publish(thrustersMsg);
 		}
-		vel_pub_.publish(odom);
-		
-		for (int i=0; i<5; i++)
-			thrustersMsg.data.push_back(thrusters[i]);
-		acc_pub_.publish(thrustersMsg);
+		else
+		{
+        		//Assign the calculated values into the publisher
+        		odom.twist.twist.linear.x =  currentPosition.pose.position.y;
+        		odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+        		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+        		odom.twist.twist.angular.x = 0; //roll;
+        		odom.twist.twist.angular.y = 0; //pitch;
+        		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+        		for (int i=0; i<36; i++)
+        		{
+        			odom.twist.covariance[i]=0;
+        			odom.pose.covariance[i]=0;
+        		}
+        		vel_pub_.publish(odom);
+                }		
 	}
 /*	else //Arm control
 	{

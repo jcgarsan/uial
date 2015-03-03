@@ -31,15 +31,15 @@
 #define DEBUG_hand_sub 		0
 #define DEBUG_leap_sub 		1
 #define DEBUG_spacenav_sub	0
-#define DEBUG_joystick_sub	1
+#define DEBUG_joystick_sub	0
 
 //Acceleration or velocities
-#define accelerations		1
+#define accelerations		0
 
 
 //Device to be used
-#define leapMotionDev		0
-#define joystickDev			1
+#define leapMotionDev		1
+#define joystickDev			0
 #define spaceMouseDev		0
 
 
@@ -102,7 +102,6 @@ Uial::Uial()
 	
 	robot=new ARM5Arm(nh_, "uwsim/joint_state", "uwsim/joint_state_command");
 	lastPress = ros::Time::now();
-
 }
 
 Uial::~Uial()
@@ -274,9 +273,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	odom.pose.pose.orientation.w = 1;
 
 	//if the user don't move the hand, the robot keep the position
-	if ((posstamped->pose.position.x == previousPosition.pose.position.x) and \
-		(posstamped->pose.position.y == previousPosition.pose.position.y) and \
-		(posstamped->pose.position.z == previousPosition.pose.position.z))
+	if (handsDetected == 0)
 	{
 		robotStopped = true;
 		moving = false;
@@ -285,6 +282,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 	}
 	else
 	{
+		
 		robotStopped = false;
 		//store previous position
 		previousPosition.pose.position.x = posstamped->pose.position.x;
@@ -303,16 +301,16 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 					if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 80) and (posstamped->pose.position.y >= 55))
 					{
 							currentPosition.pose.position.y = 0.3;
-							thrusters[0] = 0.4;
-							thrusters[1] = 0.4;
+							thrusters[2] = -0.5;
+							thrusters[3] = -0.5;
 					}
 					else
 					{
 						if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 55))
 						{
 							currentPosition.pose.position.y = 0.6;
-							thrusters[0] = 0.4;
-							thrusters[1] = 0.4;
+							thrusters[2] = -0.5;
+							thrusters[3] = -0.5;
 						}
 						else //sensorRangeAlarm = true
 							currentPosition.pose.position.y = 0.0;
@@ -322,16 +320,16 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 120) and (posstamped->pose.position.y <= 170))
 					{
 						currentPosition.pose.position.y = -0.3;
-						thrusters[0] = -0.4;
-						thrusters[1] = -0.4;
+						thrusters[2] = 0.5;
+						thrusters[3] = 0.5;
 					}
 					else
 					{
 						if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 170))
 						{
 							currentPosition.pose.position.y = -0.6;
-							thrusters[0] = -0.4;
-							thrusters[1] = -0.4;
+							thrusters[2] = 0.5;
+							thrusters[3] = 0.5;
 						}
 						else //sensorPressureAlarm = true
 							currentPosition.pose.position.y = 0.0;
@@ -350,30 +348,30 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 				if ((posstamped->pose.position.z < -10) and (posstamped->pose.position.z <= -35))
 				{
 					currentPosition.pose.position.z = 0.6;
-					thrusters[2] = 0.4;
-					thrusters[3] = 0.4;
+					thrusters[0] = -0.5;
+					thrusters[1] = -0.5;
 				}
 				else
 				{
 					if (posstamped->pose.position.z < -10)
 					{
 						currentPosition.pose.position.z = 0.3;
-						thrusters[2] = 0.4;
-						thrusters[3] = 0.4;
+						thrusters[0] = -0.5;
+						thrusters[1] = -0.5;
 					}
 					else
 					{
 						if ((posstamped->pose.position.z > 15) and (posstamped->pose.position.z <= 70))
 						{
 							currentPosition.pose.position.z = -0.3;
-							thrusters[2] = -0.4;
-							thrusters[3] = -0.4;
+							thrusters[0] = 0.5;
+							thrusters[1] = 0.5;
 						}
 						else
 						{
 							currentPosition.pose.position.z = -0.6;
-							thrusters[2] = -0.4;
-							thrusters[3] = -0.4;
+							thrusters[0] = 0.5;
+							thrusters[1] = 0.5;
 						}
 					}
 				}
@@ -386,26 +384,26 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 				if ((posstamped->pose.position.x > 25.0) and (posstamped->pose.position.x <= 90.0))
 				{
 					currentPosition.pose.position.x = 0.3;
-					thrusters[4] = 0.4;
+					thrusters[4] = 0.6;
 				}
 				else
 				{
 					if (posstamped->pose.position.x > 90.0) //and (posstamped->pose.position.x > 70.0))
 					{
 						currentPosition.pose.position.x = 0.6;
-						thrusters[4] = 0.4;
+						thrusters[4] = 0.6;
 					}
 					else
 					{
 						if ((posstamped->pose.position.x < -25.0) and (posstamped->pose.position.x <= -90.0))
 						{
 							currentPosition.pose.position.x = -0.6;
-							thrusters[4] = -0.4;
+							thrusters[4] = -0.5;
 						}
 						else
 						{
 							currentPosition.pose.position.x = -0.3;
-							thrusters[4] = -0.4;
+							thrusters[4] = -0.5;
 						}
 					}
 				}
@@ -429,51 +427,29 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			}
 
 			transform.getBasis().getRPY(roll, pitch, yaw);
-			if (roll < -0.5)
+			if (roll < -0.7)
 			{
 				currentPosition.pose.orientation.x = -0.2;
-				thrusters[0] = 0.4;
-				thrusters[1] = -0.4;
+				thrusters[0] = 0.25;
+				thrusters[1] = -0.25;
 			}
 			else
 			{
-				if ((roll >= -0.5) and (roll <= 0.5))
+				if ((roll >= -0.7) and (roll <= 0.7))
 					currentPosition.pose.orientation.x = 0.0;			
 				else
 				{
 					currentPosition.pose.orientation.x = 0.2;
-					thrusters[0] = -0.4;
-					thrusters[1] = 0.4;
+					thrusters[0] = -0.25;
+					thrusters[1] = 0.25;
 				}
 			}
 			
-			if (accelerations)
-			{
-        			for (int i=0; i<5; i++)
-	        			thrustersMsg.data.push_back(thrusters[i]);
-		        	acc_pub_.publish(thrustersMsg);
-                        }
-                        else
-                        {
-                                //Assign the calculated values into the publisher
-                                odom.twist.twist.linear.x =  currentPosition.pose.position.z;
-                                odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-                                odom.twist.twist.linear.z =  currentPosition.pose.position.y;
-                                odom.twist.twist.angular.x = 0; //roll;
-                                odom.twist.twist.angular.y = 0; //pitch;
-                                odom.twist.twist.angular.z = currentPosition.pose.orientation.x; //yaw
-                                for (int i=0; i<36; i++)
-                                {
-                                        odom.twist.covariance[i]=0;
-                                        odom.pose.covariance[i]=0;
-                                }
-                                vel_pub_.publish(odom);                        
-                        }
-	
+
 		}//((handsDetected == 1) and rightHand)
 		
 		//If there are two hands, the user controls the end effector
-		else if ((handsDetected == 2) and rightHand)
+/*		else if ((handsDetected == 2) and rightHand)
 		{
 			cout << "two hands detected" << endl;
 			//LeapMotion Y-axis -> end effector Z-axis
@@ -622,9 +598,33 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			}
 
 			robot->setJointVelocity(send_joints);
-		} //if ((handsDetected == 2) and rightHand)
+		} //if ((handsDetected == 2) and rightHand)  */
 	}
 
+	if (accelerations)
+	{
+		for (int i=0; i<5; i++)
+		{
+			thrustersMsg.data.push_back(thrusters[i]);
+			acc_pub_.publish(thrustersMsg);
+		}
+	}
+	else
+	{
+		//Assign the calculated values into the publisher
+		odom.twist.twist.linear.x =  currentPosition.pose.position.z;
+		odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+		odom.twist.twist.linear.z =  currentPosition.pose.position.y;
+		odom.twist.twist.angular.x = 0; //roll;
+		odom.twist.twist.angular.y = 0; //pitch;
+		odom.twist.twist.angular.z = currentPosition.pose.orientation.x; //yaw
+		for (int i=0; i<36; i++)
+		{
+			odom.twist.covariance[i]=0;
+			odom.pose.covariance[i]=0;
+		}
+		vel_pub_.publish(odom);                        
+	}	
 
 	// DEBUG AREA: print hand position and command to send to UWSim
 	if (DEBUG_leap_sub)
@@ -976,7 +976,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.x = 0.3;
 				else  //(joystick->axes[0] >= 0.7)
 					currentPosition.pose.position.x = 0.6;
-				thrusters[4] = 0.4;
+				thrusters[4] = 0.7;
 			}
 			else
 			{
@@ -984,7 +984,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.x = -0.3;
 				else  //(joystick->axes[0] <= -0.7)
 					currentPosition.pose.position.x = -0.6;
-				thrusters[4] = -0.4;
+				thrusters[4] = -0.7;
 			}
 		}
 		//joystick Z-axis -> Robot Z-axis
@@ -998,8 +998,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.z = 0.3;
 				else
 					currentPosition.pose.position.z = 0.6;
-				thrusters[2] = -0.4;
-				thrusters[3] = -0.4;
+				thrusters[2] = -0.7;
+				thrusters[3] = -0.7;
 			}
 			else
 			{
@@ -1007,8 +1007,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.z = -0.3;
 				else
 					currentPosition.pose.position.z = -0.6;
-				thrusters[2] = 0.4;
-				thrusters[3] = 0.4;
+				thrusters[2] = 0.7;
+				thrusters[3] = 0.7;
 			}
 		}
 		//joystick Y-axis (lever) -> Robot X-axis
@@ -1024,8 +1024,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.y = -0.3;
 					else
 						currentPosition.pose.position.y = -0.6;
-					thrusters[0] = 0.4;
-					thrusters[1] = 0.4;
+					thrusters[0] = 0.7;
+					thrusters[1] = 0.7;
 				}
 			}
 			else if (!sensorRangeAlarm)
@@ -1034,8 +1034,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.y = 0.3;
 				else
 					currentPosition.pose.position.y = 0.6;
-				thrusters[0] = -0.4;
-				thrusters[1] = -0.4;
+				thrusters[0] = -0.7;
+				thrusters[1] = -0.7;
 			}
 			if (sensorRangeAlarm)
 				cout << "Alarm: robot on seafloor." << endl;

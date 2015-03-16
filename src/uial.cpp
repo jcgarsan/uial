@@ -29,17 +29,17 @@
 //DEBUG Flags
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
-#define DEBUG_leap_sub 		1
+#define DEBUG_leap_sub 		0
 #define DEBUG_spacenav_sub	0
-#define DEBUG_joystick_sub	0
+#define DEBUG_joystick_sub	1
 
 //Acceleration or velocities
 #define accelerations		0
 
 
 //Device to be used
-#define leapMotionDev		1
-#define joystickDev			0
+#define leapMotionDev		0
+#define joystickDev			1
 #define spaceMouseDev		0
 
 
@@ -52,24 +52,24 @@ Uial::Uial()
 	//initializing values
 	p0.x = 0; p0.y = 0; p0.z = 0;
 	q0.x = 0; q0.y = 0; q0.z = 0; q0.w = 0;
-	initPosition.pose.position 		  = p0;
-	initPosition.pose.orientation	  = q0;
-	currentPosition.pose.position 	  = p0;
-	currentPosition.pose.orientation  = q0;
-	previousPosition.pose.position 	  = p0;
-	previousPosition.pose.orientation = q0;
-	sensorRangeAlarm 		  = false;
-	sensorPressureAlarm 		  = false;
-	handIsOpen 			  = false;
-	rotationMode 			  = false;
-	selectWaypoint 			  = false;
-	robotStopped			  = false;
-	rightHand			  = false;
-	moving				  = false;
-	robotControl			  = true;
-	numWaypoint 			  = 1;
-	gripperApperture		  = 0;
-	gripperRotation			  = 0;
+	initPosition.pose.position			= p0;
+	initPosition.pose.orientation		= q0;
+	currentPosition.pose.position		= p0;
+	currentPosition.pose.orientation	= q0;
+	previousPosition.pose.position		= p0;
+	previousPosition.pose.orientation	= q0;
+	sensorRangeAlarm					= false;
+	sensorPressureAlarm 				= false;
+	handIsOpen 							= false;
+	rotationMode 						= false;
+	selectWaypoint 						= false;
+	robotStopped						= false;
+	rightHand							= false;
+	moving								= false;
+	robotControl						= true;
+	numWaypoint 						= 1;
+	gripperApperture					= 0;
+	gripperRotation						= 0;
 	
 
 	listener = new (tf::TransformListener);
@@ -1050,13 +1050,13 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		{
 			if (joystick->axes[2] > 0.5)
 			{
-				currentPosition.pose.orientation.z = 0.3;
+				currentPosition.pose.orientation.z = -0.3;
 				thrusters[0] = -0.4;
 				thrusters[1] = 0.4;
 			}
 			else
 			{
-				currentPosition.pose.orientation.z = -0.3;
+				currentPosition.pose.orientation.z = 0.3;
 				thrusters[0] = 0.4;
 				thrusters[1] = -0.4;
 			}

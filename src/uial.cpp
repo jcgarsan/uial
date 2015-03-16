@@ -1050,13 +1050,13 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		{
 			if (joystick->axes[2] > 0.5)
 			{
-				currentPosition.pose.orientation.z = -0.3;
+				currentPosition.pose.orientation.z = 0.3;
 				thrusters[0] = -0.4;
 				thrusters[1] = 0.4;
 			}
 			else
 			{
-				currentPosition.pose.orientation.z = 0.3;
+				currentPosition.pose.orientation.z = -0.3;
 				thrusters[0] = 0.4;
 				thrusters[1] = -0.4;
 			}

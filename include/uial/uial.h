@@ -51,15 +51,19 @@ class Uial
 		bool moving;
 		bool robotControl;
 	
+		int numWaypoint;
+		int handsDetected;
+		int gripperApperture;
+		int gripperRotation;
+
+		geometry_msgs::PoseStamped	waypointsList[10];
+		std_msgs::Bool				safetyMeasureAlarm;
+		
+		ros::Time lastPress;
+
 		ARM5Arm *robot;
 		vpHomogeneousMatrix desired_bMe, bMe;
 		vpColVector next_joints;
-
-		int numWaypoint, handsDetected, gripperApperture, gripperRotation;
-
-		geometry_msgs::PoseStamped waypointsList[10];
-		
-		ros::Time lastPress;
 
 
 	private:
@@ -83,6 +87,7 @@ class Uial
 
 		ros::Publisher  vel_pub_;
 		ros::Publisher  acc_pub_;
+		ros::Publisher  safety_pub_;
 
 		ros::Subscriber hand_sub_;
 		ros::Subscriber leap_sub_;

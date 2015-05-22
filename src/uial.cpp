@@ -29,7 +29,7 @@
 //DEBUG Flags
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
-#define DEBUG_leap_sub 		0
+#define DEBUG_leap_sub 		1
 #define DEBUG_spacenav_sub	0
 #define DEBUG_joystick_sub	1
 
@@ -38,7 +38,7 @@
 
 
 //Device to be used
-#define leapMotionDev		0
+#define leapMotionDev		1
 #define joystickDev			1
 #define spaceMouseDev		0
 
@@ -58,6 +58,7 @@ Uial::Uial()
 	currentPosition.pose.orientation	= q0;
 	previousPosition.pose.position		= p0;
 	previousPosition.pose.orientation	= q0;
+	safetyMeasureAlarm.data				= false;
 	sensorRangeAlarm					= false;
 	sensorPressureAlarm 				= false;
 	handIsOpen 							= false;
@@ -79,22 +80,23 @@ Uial::Uial()
 	        vel_pub_ = nh_.advertise<nav_msgs::Odometry>("/dataNavigator", 1);
 	else
         	acc_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
+    safety_pub_ = nh_.advertise<std_msgs::Bool>("/safetyMeasures", 1);
 	
 	//Subscriber initialization by device to be used
 	if (leapMotionDev)
 	{
         	hand_sub_ = nh_.subscribe<sensor_msgs::JointState>("leap_tracker/joint_state_out", 1, &Uial::leapHandCallback, this);
         	leap_sub_ = nh_.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
-        }
-        if (joystickDev)
-                joystick_sub_ = nh_.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::joystickCallback, this); 
-        if (spaceMouseDev)
-        {
-                spacenav_sub_ = nh_.subscribe<geometry_msgs::Twist>("spacenav/twist", 1, &Uial::spacenavCallback, this);
-                spacenavButtons_sub_ = nh_.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
-        }
-        
-        //Subscriber initialization for sensors        
+	}
+	if (joystickDev)
+			joystick_sub_ = nh_.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::joystickCallback, this); 
+	if (spaceMouseDev)
+	{
+			spacenav_sub_ = nh_.subscribe<geometry_msgs::Twist>("spacenav/twist", 1, &Uial::spacenavCallback, this);
+			spacenavButtons_sub_ = nh_.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
+	}
+	
+	//Subscriber initialization for sensors        
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
 	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
@@ -180,6 +182,12 @@ void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstP
 		sensorPressureAlarm = true;
 	else
 		sensorPressureAlarm = false;
+		
+	if ((!sensorPressureAlarm) and (!sensorRangeAlarm))
+		safetyMeasureAlarm.data = false;
+	else
+		safetyMeasureAlarm.data = true;
+	safety_pub_.publish(safetyMeasureAlarm);
 }
 
 
@@ -189,6 +197,12 @@ void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 		sensorRangeAlarm = true;
 	else
 		sensorRangeAlarm = false;
+
+	if ((!sensorPressureAlarm) and (!sensorRangeAlarm))
+		safetyMeasureAlarm.data = false;
+	else
+		safetyMeasureAlarm.data = true;
+	safety_pub_.publish(safetyMeasureAlarm);
 }
 
 
@@ -293,12 +307,12 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 		if ((handsDetected == 1) and rightHand)
 		{
 			//LeapMotion Y-axis -> Robot Z-axis
-			if ((posstamped->pose.position.y >= 80) and (posstamped->pose.position.y <= 120))
+			if ((posstamped->pose.position.y >= 100) and (posstamped->pose.position.y <= 180))
 				currentPosition.pose.position.y = 0.0;
 			else
 			{
-				if (posstamped->pose.position.y < 80)
-					if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 80) and (posstamped->pose.position.y >= 55))
+				if (posstamped->pose.position.y < 100)
+					if ((!sensorRangeAlarm) and (posstamped->pose.position.y < 100) and (posstamped->pose.position.y >= 55))
 					{
 							currentPosition.pose.position.y = 0.3;
 							thrusters[2] = -0.5;
@@ -317,7 +331,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 					}
 				else //User's hand is upper
 				{
-					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 120) and (posstamped->pose.position.y <= 170))
+					if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 180) and (posstamped->pose.position.y <= 230))
 					{
 						currentPosition.pose.position.y = -0.3;
 						thrusters[2] = 0.5;
@@ -325,7 +339,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 					}
 					else
 					{
-						if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 170))
+						if ((!sensorPressureAlarm) and (posstamped->pose.position.y > 230))
 						{
 							currentPosition.pose.position.y = -0.6;
 							thrusters[2] = 0.5;
@@ -429,7 +443,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 			transform.getBasis().getRPY(roll, pitch, yaw);
 			if (roll < -0.7)
 			{
-				currentPosition.pose.orientation.x = -0.2;
+				currentPosition.pose.orientation.x = -0.4;
 				thrusters[0] = 0.25;
 				thrusters[1] = -0.25;
 			}
@@ -439,7 +453,7 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 					currentPosition.pose.orientation.x = 0.0;			
 				else
 				{
-					currentPosition.pose.orientation.x = 0.2;
+					currentPosition.pose.orientation.x = 0.4;
 					thrusters[0] = -0.25;
 					thrusters[1] = 0.25;
 				}

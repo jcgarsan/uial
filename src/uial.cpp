@@ -29,7 +29,7 @@
 //DEBUG Flags
 #define DEBUG_waypoint_sub	0
 #define DEBUG_hand_sub 		0
-#define DEBUG_leap_sub 		1
+#define DEBUG_leap_sub 		0
 #define DEBUG_spacenav_sub	0
 #define DEBUG_joystick_sub	1
 
@@ -38,7 +38,7 @@
 
 
 //Device to be used
-#define leapMotionDev		1
+#define leapMotionDev		0
 #define joystickDev			1
 #define spaceMouseDev		0
 
@@ -59,6 +59,7 @@ Uial::Uial()
 	previousPosition.pose.position		= p0;
 	previousPosition.pose.orientation	= q0;
 	safetyMeasureAlarm.data				= false;
+	userControlRequest					= false;
 	sensorRangeAlarm					= false;
 	sensorPressureAlarm 				= false;
 	handIsOpen 							= false;
@@ -77,12 +78,12 @@ Uial::Uial()
 
 	//Publisher initialization
 	if (!accelerations)
-	        vel_pub_ = nh_.advertise<nav_msgs::Odometry>("/dataNavigator", 1);
+	        vel_pub_ = nh_.advertise<nav_msgs::Odometry>("dataNavigator", 1);
 	else
         	acc_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
-    safety_pub_ = nh_.advertise<std_msgs::Bool>("/safetyMeasures", 1);
+    safety_pub_ = nh_.advertise<std_msgs::Bool>("safetyMeasures", 1);
 	
-	//Subscriber initialization by device to be used
+	//Subscriber initialization (device to be used)
 	if (leapMotionDev)
 	{
         	hand_sub_ = nh_.subscribe<sensor_msgs::JointState>("leap_tracker/joint_state_out", 1, &Uial::leapHandCallback, this);
@@ -96,11 +97,12 @@ Uial::Uial()
 			spacenavButtons_sub_ = nh_.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
 	}
 	
-	//Subscriber initialization for sensors        
+	//Subscriber initialization (sensors)
 	sensorPressure_sub_ = nh_.subscribe<underwater_sensor_msgs::Pressure>("g500/pressure", 1, &Uial::sensorPressureCallback, this);
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
 	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
 
+	userControlRequest_sub_ = nh_.subscribe<std_msgs::Bool>("userControlRequest", 1, &Uial::userControlRequestCallback, this);
 	
 	robot=new ARM5Arm(nh_, "uwsim/joint_state", "uwsim/joint_state_command");
 	lastPress = ros::Time::now();
@@ -109,6 +111,14 @@ Uial::Uial()
 Uial::~Uial()
 {
 	//Destructor
+}
+
+
+//TODO: add 	if ((robotControl) and (!userControlRequest)) in device's callbacks
+
+void Uial::userControlRequestCallback(const std_msgs::Bool::ConstPtr& userControlReq)
+{
+	userControlRequest = userControlReq->data;
 }
 
 
@@ -977,7 +987,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 
 	thrustersMsg.data.clear();
 	
-	if (robotControl)
+	if ((robotControl) and (userControlRequest))
 	{
 		//joystick X-axis -> Robot Y-axis
 		if ((joystick->axes[0] <= 0.4) and (joystick->axes[0] >= -0.4))
@@ -1233,6 +1243,8 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	{
 		cout << "Joystick values: (" << joystick->axes[0] << ", " << joystick->axes[1] << \
 				", " << joystick->axes[3] << " :: " << joystick->axes[2] << ")" << endl;
+		cout << "userControlRequest: " << userControlRequest << endl;
+
 
 	}
 }

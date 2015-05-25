@@ -50,6 +50,7 @@ class Uial
 		bool rightHand;
 		bool moving;
 		bool robotControl;
+		bool userControlRequest;
 	
 		int numWaypoint;
 		int handsDetected;
@@ -75,6 +76,7 @@ class Uial
 		void spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons);
 		void spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue);
 		void joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick);
+		void userControlRequestCallback(const std_msgs::Bool::ConstPtr& userControlRequest);
 
 
 		ros::NodeHandle nh_;
@@ -97,6 +99,7 @@ class Uial
 		ros::Subscriber spacenav_sub_;
 		ros::Subscriber spacenavButtons_sub_;
 		ros::Subscriber joystick_sub_;
+		ros::Subscriber userControlRequest_sub_;
 
 		tf::Transform transform_init, transform_new;
 		tf::StampedTransform transform;

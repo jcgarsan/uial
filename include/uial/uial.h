@@ -50,7 +50,7 @@ class Uial
 		bool rightHand;
 		bool moving;
 		bool robotControl;
-		bool userControlRequest;
+		bool userControlReq;
 	
 		int numWaypoint;
 		int handsDetected;
@@ -59,6 +59,7 @@ class Uial
 
 		geometry_msgs::PoseStamped	waypointsList[10];
 		std_msgs::Bool				safetyMeasureAlarm;
+		std_msgs::Bool				userControlRequest;
 		
 		ros::Time lastPress;
 
@@ -76,7 +77,6 @@ class Uial
 		void spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons);
 		void spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue);
 		void joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick);
-		void userControlRequestCallback(const std_msgs::Bool::ConstPtr& userControlRequest);
 
 
 		ros::NodeHandle nh_;
@@ -90,6 +90,7 @@ class Uial
 		ros::Publisher  vel_pub_;
 		ros::Publisher  acc_pub_;
 		ros::Publisher  safety_pub_;
+		ros::Publisher	userControlRequest_pub_;
 
 		ros::Subscriber hand_sub_;
 		ros::Subscriber leap_sub_;

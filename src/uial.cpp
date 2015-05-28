@@ -59,7 +59,8 @@ Uial::Uial()
 	previousPosition.pose.position		= p0;
 	previousPosition.pose.orientation	= q0;
 	safetyMeasureAlarm.data				= false;
-	userControlRequest					= false;
+	userControlRequest.data				= false;
+	userControlReq						= false;
 	sensorRangeAlarm					= false;
 	sensorPressureAlarm 				= false;
 	handIsOpen 							= false;
@@ -82,7 +83,8 @@ Uial::Uial()
 	else
         	acc_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
     safety_pub_ = nh_.advertise<std_msgs::Bool>("safetyMeasures", 1);
-	
+	userControlRequest_pub_ = nh_.advertise<std_msgs::Bool>("userControlRequest", 1);
+
 	//Subscriber initialization (device to be used)
 	if (leapMotionDev)
 	{
@@ -102,8 +104,7 @@ Uial::Uial()
 	sensorRange_sub_ = nh_.subscribe<sensor_msgs::Range>("uwsim/g500/range", 1, &Uial::sensorRangeCallback, this);
 	odom_sub_ = nh_.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
 
-	userControlRequest_sub_ = nh_.subscribe<std_msgs::Bool>("userControlRequest", 1, &Uial::userControlRequestCallback, this);
-	
+
 	robot=new ARM5Arm(nh_, "uwsim/joint_state", "uwsim/joint_state_command");
 	lastPress = ros::Time::now();
 }
@@ -115,11 +116,6 @@ Uial::~Uial()
 
 
 //TODO: add 	if ((robotControl) and (!userControlRequest)) in device's callbacks
-
-void Uial::userControlRequestCallback(const std_msgs::Bool::ConstPtr& userControlReq)
-{
-	userControlRequest = userControlReq->data;
-}
 
 
 void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
@@ -982,12 +978,22 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	nav_msgs::Odometry odom;
 	vpColVector current_joints(5), send_joints(5);
 
+
+	ros::Time currentPress = ros::Time::now();
+	ros::Duration difTime = currentPress - lastPress;
+	if ((difTime.toSec() > 0.5) and (joystick->buttons[0] == 1))
+	{
+		userControlRequest.data = !userControlRequest.data;
+		lastPress = currentPress;
+	}
+	userControlRequest_pub_.publish(userControlRequest);
+
 	for (int i=0; i<5; i++)
 		thrusters[i] = 0.0;
 
 	thrustersMsg.data.clear();
 	
-	if ((robotControl) and (userControlRequest))
+	if ((robotControl) and (userControlReq))
 	{
 		//joystick X-axis -> Robot Y-axis
 		if ((joystick->axes[0] <= 0.4) and (joystick->axes[0] >= -0.4))
@@ -1243,7 +1249,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	{
 		cout << "Joystick values: (" << joystick->axes[0] << ", " << joystick->axes[1] << \
 				", " << joystick->axes[3] << " :: " << joystick->axes[2] << ")" << endl;
-		cout << "userControlRequest: " << userControlRequest << endl;
+		cout << "userControlRequest button pressed. userControlRequest = " << userControlRequest << endl;
 
 
 	}

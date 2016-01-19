@@ -34,7 +34,7 @@
 #define DEBUG_joystick_sub	1
 
 //Acceleration or velocities
-#define accelerations		0
+#define accelerations		1
 
 
 //Device to be used
@@ -60,7 +60,6 @@ Uial::Uial()
 	previousPosition.pose.orientation	= q0;
 	safetyMeasureAlarm.data				= false;
 	userControlRequest.data				= false;
-	userControlReq						= false;
 	sensorRangeAlarm					= false;
 	sensorPressureAlarm 				= false;
 	handIsOpen 							= false;
@@ -69,7 +68,7 @@ Uial::Uial()
 	robotStopped						= false;
 	rightHand							= false;
 	moving								= false;
-	robotControl						= true;
+	robotControl						= true;		//Selects the robot control or arm control
 	numWaypoint 						= 1;
 	gripperApperture					= 0;
 	gripperRotation						= 0;
@@ -993,7 +992,9 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 
 	thrustersMsg.data.clear();
 	
-	if ((robotControl) and (userControlReq))
+	robotControl = true;
+	
+	if ((robotControl) and (userControlRequest.data))
 	{
 		//joystick X-axis -> Robot Y-axis
 		if ((joystick->axes[0] <= 0.4) and (joystick->axes[0] >= -0.4))
@@ -1247,6 +1248,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	// DEBUG AREA: print hand position and command to send to UWSim
 	if (DEBUG_joystick_sub)
 	{
+		cout << "Accelerations activated: " << accelerations << endl;
 		cout << "Joystick values: (" << joystick->axes[0] << ", " << joystick->axes[1] << \
 				", " << joystick->axes[3] << " :: " << joystick->axes[2] << ")" << endl;
 		cout << "userControlRequest button pressed. userControlRequest = " << userControlRequest << endl;

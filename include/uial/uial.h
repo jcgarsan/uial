@@ -50,7 +50,6 @@ class Uial
 		bool rightHand;
 		bool moving;
 		bool robotControl;
-		bool userControlReq;
 	
 		int numWaypoint;
 		int handsDetected;

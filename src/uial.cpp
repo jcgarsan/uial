@@ -114,8 +114,6 @@ Uial::~Uial()
 }
 
 
-//TODO: add 	if ((robotControl) and (!userControlRequest)) in device's callbacks
-
 
 void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
 {
@@ -977,7 +975,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	nav_msgs::Odometry odom;
 	vpColVector current_joints(5), send_joints(5);
 
-
+	//Check if the user press the userControlRequest button
 	ros::Time currentPress = ros::Time::now();
 	ros::Duration difTime = currentPress - lastPress;
 	if ((difTime.toSec() > 0.5) and (joystick->buttons[0] == 1))
@@ -987,12 +985,11 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	}
 	userControlRequest_pub_.publish(userControlRequest);
 
+	//Check for the joystick movements
 	for (int i=0; i<5; i++)
 		thrusters[i] = 0.0;
 
 	thrustersMsg.data.clear();
-	
-	robotControl = true;
 	
 	if ((robotControl) and (userControlRequest.data))
 	{
@@ -1095,26 +1092,26 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 
 		if (accelerations)
 		{
-		        for (int i=0; i<5; i++)
-		                thrustersMsg.data.push_back(thrusters[i]);
-                        acc_pub_.publish(thrustersMsg);
+			for (int i=0; i<5; i++)
+				thrustersMsg.data.push_back(thrusters[i]);
+			acc_pub_.publish(thrustersMsg);
 		}
 		else
 		{
-        		//Assign the calculated values into the publisher
-        		odom.twist.twist.linear.x =  currentPosition.pose.position.y;
-        		odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-        		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-        		odom.twist.twist.angular.x = 0; //roll;
-        		odom.twist.twist.angular.y = 0; //pitch;
-        		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-        		for (int i=0; i<36; i++)
-        		{
-        			odom.twist.covariance[i]=0;
-        			odom.pose.covariance[i]=0;
-        		}
-        		vel_pub_.publish(odom);
-                }		
+			//Assign the calculated values into the publisher
+			odom.twist.twist.linear.x =  currentPosition.pose.position.y;
+			odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+			odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+			odom.twist.twist.angular.x = 0; //roll;
+			odom.twist.twist.angular.y = 0; //pitch;
+			odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+			for (int i=0; i<36; i++)
+			{
+				odom.twist.covariance[i]=0;
+				odom.pose.covariance[i]=0;
+			}
+			vel_pub_.publish(odom);
+			}		
 	}
 /*	else //Arm control
 	{
@@ -1243,17 +1240,15 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 			send_joints[4] = -0.05;		
 
 		robot->setJointVelocity(send_joints);
-	}
-*/
+	}*/
+
 	// DEBUG AREA: print hand position and command to send to UWSim
 	if (DEBUG_joystick_sub)
 	{
 		cout << "Accelerations activated: " << accelerations << endl;
 		cout << "Joystick values: (" << joystick->axes[0] << ", " << joystick->axes[1] << \
 				", " << joystick->axes[3] << " :: " << joystick->axes[2] << ")" << endl;
-		cout << "userControlRequest button pressed. userControlRequest = " << userControlRequest << endl;
-
-
+		cout << "userControlRequest = " << userControlRequest << endl;
 	}
 }
 

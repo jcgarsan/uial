@@ -24,7 +24,8 @@
 #include <sensor_msgs/Range.h>
 #include <sensor_msgs/Joy.h>
 #include <std_msgs/Bool.h>
-#include "std_msgs/Float64MultiArray.h"
+#include <std_msgs/Int8MultiArray.h>
+#include <std_msgs/Float64MultiArray.h>
 #include <underwater_sensor_msgs/Pressure.h>
 #include <tf/transform_broadcaster.h>
 #include <tf/transform_listener.h>
@@ -57,7 +58,7 @@ class Uial
 		int gripperRotation;
 
 		geometry_msgs::PoseStamped	waypointsList[10];
-		std_msgs::Bool				safetyMeasureAlarm;
+		std_msgs::Int8MultiArray	safetyMeasureAlarm;
 		std_msgs::Bool				userControlRequest;
 		
 		ros::Time lastPress;

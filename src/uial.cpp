@@ -25,6 +25,7 @@
 
 #define pressureThreshold	0.5
 #define rangeThreshold 		1.0
+#define num_sensors			2		// 0 = is there an alarm?, 1 = surface, 2 = seafloor
 
 //DEBUG Flags
 #define DEBUG_waypoint_sub	0
@@ -32,6 +33,7 @@
 #define DEBUG_leap_sub 		0
 #define DEBUG_spacenav_sub	0
 #define DEBUG_joystick_sub	1
+#define DEBUG_safety		0
 
 //Acceleration or velocities
 #define accelerations		1
@@ -58,7 +60,6 @@ Uial::Uial()
 	currentPosition.pose.orientation	= q0;
 	previousPosition.pose.position		= p0;
 	previousPosition.pose.orientation	= q0;
-	safetyMeasureAlarm.data				= false;
 	userControlRequest.data				= false;
 	sensorRangeAlarm					= false;
 	sensorPressureAlarm 				= false;
@@ -72,7 +73,9 @@ Uial::Uial()
 	numWaypoint 						= 1;
 	gripperApperture					= 0;
 	gripperRotation						= 0;
-	
+
+	for (int i=0; i<=num_sensors; i++)
+		safetyMeasureAlarm.data.push_back(0);
 
 	listener = new (tf::TransformListener);
 
@@ -81,7 +84,7 @@ Uial::Uial()
 	        vel_pub_ = nh_.advertise<nav_msgs::Odometry>("dataNavigator", 1);
 	else
         	acc_pub_ = nh_.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
-    safety_pub_ = nh_.advertise<std_msgs::Bool>("safetyMeasures", 1);
+    safety_pub_ = nh_.advertise<std_msgs::Int8MultiArray>("safetyMeasures", 1);
 	userControlRequest_pub_ = nh_.advertise<std_msgs::Bool>("userControlRequest", 1);
 
 	//Subscriber initialization (device to be used)
@@ -179,32 +182,55 @@ void Uial::odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue)
 }
 
 
+//Pressure sensor = safetyAlarm[1]
 void Uial::sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue)
 {
 	if (abs(pressureValue->pressure) < pressureThreshold)
+	{
 		sensorPressureAlarm = true;
+		safetyMeasureAlarm.data[0] = 1;
+		safetyMeasureAlarm.data[1] = 1;
+		userControlRequest.data = true;
+	}
 	else
+	{
 		sensorPressureAlarm = false;
-		
+		safetyMeasureAlarm.data[1] = 0;
+	}
+
 	if ((!sensorPressureAlarm) and (!sensorRangeAlarm))
-		safetyMeasureAlarm.data = false;
-	else
-		safetyMeasureAlarm.data = true;
+		safetyMeasureAlarm.data[0] = 0;
+		
+	if (DEBUG_safety)
+		cout << "sensorPressureAlarm: " << sensorPressureAlarm << endl;
+		
 	safety_pub_.publish(safetyMeasureAlarm);
 }
 
 
+//Range sensor = safetyAlarm[2]
 void Uial::sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue)
 {
 	if (rangeValue->range < rangeThreshold)
+	{
 		sensorRangeAlarm = true;
+		safetyMeasureAlarm.data[0] = 0;
+		safetyMeasureAlarm.data[2] = 1;
+		userControlRequest.data = true;
+	}
 	else
+	{
 		sensorRangeAlarm = false;
-
+		safetyMeasureAlarm.data[2] = 0;
+	}
+	
 	if ((!sensorPressureAlarm) and (!sensorRangeAlarm))
-		safetyMeasureAlarm.data = false;
-	else
-		safetyMeasureAlarm.data = true;
+		safetyMeasureAlarm.data[0] = 0;
+
+
+	if (DEBUG_safety)
+		cout << "sensorRangeAlarm: " << sensorRangeAlarm << endl;
+
 	safety_pub_.publish(safetyMeasureAlarm);
 }
 
@@ -975,7 +1001,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	nav_msgs::Odometry odom;
 	vpColVector current_joints(5), send_joints(5);
 
-	//Check if the user press the userControlRequest button
+	//Check if the user press the userControlRequest button or there is a safetyAlarm
 	ros::Time currentPress = ros::Time::now();
 	ros::Duration difTime = currentPress - lastPress;
 	if ((difTime.toSec() > 0.5) and (joystick->buttons[0] == 1))
@@ -985,10 +1011,10 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	}
 	userControlRequest_pub_.publish(userControlRequest);
 
+
 	//Check for the joystick movements
 	for (int i=0; i<5; i++)
 		thrusters[i] = 0.0;
-
 	thrustersMsg.data.clear();
 	
 	if ((robotControl) and (userControlRequest.data))
@@ -1056,15 +1082,17 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 					thrusters[1] = 0.7;
 				}
 			}
-			else if (!sensorRangeAlarm)
-			{
-				if (joystick->axes[1] > -0.7)
-						currentPosition.pose.position.y = 0.3;
-				else
-					currentPosition.pose.position.y = 0.6;
-				thrusters[0] = -0.7;
-				thrusters[1] = -0.7;
-			}
+			else
+				if (!sensorRangeAlarm)
+				{
+					if (joystick->axes[1] > -0.7)
+							currentPosition.pose.position.y = 0.3;
+					else
+						currentPosition.pose.position.y = 0.6;
+					thrusters[0] = -0.7;
+					thrusters[1] = -0.7;
+				}
+				
 			if (sensorRangeAlarm)
 				cout << "Alarm: robot on seafloor." << endl;
 			if (sensorPressureAlarm)
@@ -1111,7 +1139,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 				odom.pose.covariance[i]=0;
 			}
 			vel_pub_.publish(odom);
-			}		
+		}
 	}
 /*	else //Arm control
 	{
@@ -1248,7 +1276,14 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		cout << "Accelerations activated: " << accelerations << endl;
 		cout << "Joystick values: (" << joystick->axes[0] << ", " << joystick->axes[1] << \
 				", " << joystick->axes[3] << " :: " << joystick->axes[2] << ")" << endl;
-		cout << "userControlRequest = " << userControlRequest << endl;
+		cout << "thrusters values: (" << thrusters[0] << ", " << thrusters[1] << ", " << thrusters[2] <<\
+				", " << thrusters[3] << " , " << thrusters[4] << ")" << endl;
+		cout << "sensorPressureAlarm: " << sensorPressureAlarm << ". sensorRangeAlarm: " << sensorRangeAlarm << endl;
+		cout << "safetyMeasureAlarm: [";
+		for (int i=0; i<=num_sensors; i++)
+			cout << (int) safetyMeasureAlarm.data[i] << ",";
+		cout << "]" << endl;
+		cout << "userControlRequest: " << (int) userControlRequest.data << endl;
 	}
 }
 

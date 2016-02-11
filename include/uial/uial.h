@@ -71,15 +71,14 @@ class Uial
 	private:
 		void leapHandCallback(const sensor_msgs::JointState::ConstPtr& posstamped);
 		void leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped);
-		void sensorPressureCallback(const underwater_sensor_msgs::Pressure::ConstPtr& pressureValue);
-		void sensorRangeCallback(const sensor_msgs::Range::ConstPtr& rangeValue);
 		void odomCallback(const nav_msgs::Odometry::ConstPtr& odomValue);
 		void spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons);
 		void spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue);
 		void joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick);
+		void safetyMeasuresCallback(const std_msgs::Int8MultiArray::ConstPtr& msg);
 
 
-		ros::NodeHandle nh_;
+		ros::NodeHandle nh;
 
 		geometry_msgs::Point p0;
 		geometry_msgs::Quaternion q0;
@@ -87,20 +86,19 @@ class Uial
 		geometry_msgs::PoseStamped previousPosition;
 		geometry_msgs::PoseStamped currentPosition;
 
-		ros::Publisher  vel_pub_;
-		ros::Publisher  acc_pub_;
-		ros::Publisher  safety_pub_;
-		ros::Publisher	userControlRequest_pub_;
+		ros::Publisher  pub_vel;
+		ros::Publisher  pub_acc;
+		ros::Publisher  pub_safety;
+		ros::Publisher	pub_userControlRequest;
 
-		ros::Subscriber hand_sub_;
-		ros::Subscriber leap_sub_;
-		ros::Subscriber sensorPressure_sub_;
-		ros::Subscriber sensorRange_sub_;
-		ros::Subscriber odom_sub_;
-		ros::Subscriber spacenav_sub_;
-		ros::Subscriber spacenavButtons_sub_;
-		ros::Subscriber joystick_sub_;
-		ros::Subscriber userControlRequest_sub_;
+		ros::Subscriber sub_hand;
+		ros::Subscriber sub_leap;
+		ros::Subscriber sub_odom;
+		ros::Subscriber sub_spacenav;
+		ros::Subscriber sub_spacenavButtons;
+		ros::Subscriber sub_joystick;
+		ros::Subscriber sub_userControlRequest;
+		ros::Subscriber sub_safetyMeasures;
 
 		tf::Transform transform_init, transform_new;
 		tf::StampedTransform transform;

@@ -31,17 +31,17 @@
 #define DEBUG_sub_waypoint	0
 #define DEBUG_sub_hand 		0
 #define DEBUG_sub_leap 		0
-#define DEBUG_sub_spacenav	0
-#define DEBUG_sub_joystick	1
+#define DEBUG_sub_spacenav	1
+#define DEBUG_sub_joystick	0
 
 //Acceleration or velocities
 #define accelerations		1
 
 
 //Device to be used
-#define leapMotionDev		0
-#define joystickDev			1
-#define spaceMouseDev		0
+#define leapMotionDev		0		//SimulatedIAUV.cpp should be changed when LeapMotion is used
+#define joystickDev			0
+#define spaceMouseDev		1
 
 
 using namespace std;
@@ -141,8 +141,11 @@ void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavBut
 				gripperApperture = 0;
 		}
 		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 1)) 
-			robotControl = !robotControl;
-		lastPress = currentPress;
+		{
+			userControlRequest.data = !userControlRequest.data;
+			lastPress = currentPress;
+		}
+		pub_userControlRequest.publish(userControlRequest);
 	}
 }
 
@@ -678,16 +681,21 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 	nav_msgs::Odometry odom;
 	vpColVector current_joints(5), send_joints(5);
 
-	if (robotControl)
+	//Check for the joystick movements
+	for (int i=0; i<5; i++)
+		thrusters[i] = 0.0;
+	thrustersMsg.data.clear();
+
+	if ((robotControl) and (userControlRequest.data))
 	{
 		//SpaceNav X-axis -> Robot X-axis
-		if ((twistValue->linear.x <= 60.0) and (twistValue->linear.x >= -60))
+		if ((twistValue->linear.x <= 0.2) and (twistValue->linear.x >= -0.2))
 			currentPosition.pose.position.x = 0.0;
 		else
 		{
-			if (twistValue->linear.x > 60)
+			if (twistValue->linear.x > 0.2)
 			{
-				if (twistValue->linear.x < 200)
+				if (twistValue->linear.x < 0.5)
 						currentPosition.pose.position.x = 0.3;
 				else  //(twistValue->linear.x >= 200)
 					currentPosition.pose.position.x = 0.6;
@@ -696,7 +704,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			}
 			else
 			{
-				if (twistValue->linear.x > -200)
+				if (twistValue->linear.x > -0.5)
 						currentPosition.pose.position.x = -0.3;
 				else  //(twistValue->linear.x <= -200)
 					currentPosition.pose.position.x = -0.6;
@@ -705,37 +713,37 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			}
 		}
 		//SpaceNav Y-axis -> Robot Y-axis
-		if ((twistValue->linear.y <= 60) and (twistValue->linear.y >= -60))
+		if ((twistValue->linear.y <= 0.2) and (twistValue->linear.y >= -0.2))
 			currentPosition.pose.position.y = 0.0;
 		else
 		{
-			if (twistValue->linear.y > 60)
+			if (twistValue->linear.y > 0.2)
 			{
-				if (twistValue->linear.y < 200)
+				if (twistValue->linear.y < 0.5)
 						currentPosition.pose.position.y = -0.3;
 				else
 					currentPosition.pose.position.y = -0.6;
-				thrusters[4] = 0.4;
+				thrusters[4] = -0.4;
 			}
 			else
 			{
-				if (twistValue->linear.y > -200)
+				if (twistValue->linear.y > -0.5)
 						currentPosition.pose.position.y = 0.3;
 				else
 					currentPosition.pose.position.y = 0.6;
-				thrusters[4] = -0.4;
+				thrusters[4] = 0.4;
 			}
 		}
 		//SpaceNav Z-axis -> Robot Z-axis
-		if ((twistValue->linear.z <= 60) and (twistValue->linear.z >= -60))
+		if ((twistValue->linear.z <= 0.2) and (twistValue->linear.z >= -0.2))
 			currentPosition.pose.position.z = 0.0;
 		else
 		{
-			if (twistValue->linear.z > 60)
+			if (twistValue->linear.z > 0.2)
 			{
 				if (!sensorPressureAlarm)
 				{
-					if (twistValue->linear.z < 200)
+					if (twistValue->linear.z < 0.5)
 						currentPosition.pose.position.z = -0.3;
 					else
 						currentPosition.pose.position.z = -0.6;
@@ -745,7 +753,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			}
 			else if (!sensorRangeAlarm)
 			{
-				if (twistValue->linear.z > -200)
+				if (twistValue->linear.z > -0.5)
 						currentPosition.pose.position.z = 0.3;
 				else
 					currentPosition.pose.position.z = 0.6;
@@ -758,11 +766,11 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 				cout << "Alarm: robot on surface." << endl;
 		}
 
-		if ((twistValue->angular.z <= 100) and (twistValue->angular.z >= -100))
+		if ((twistValue->angular.z <= 0.3) and (twistValue->angular.z >= -0.3))
 			currentPosition.pose.orientation.z = 0.0;
 		else
 		{
-			if (twistValue->angular.z > 100)
+			if (twistValue->angular.z > 0.3)
 			{
 				currentPosition.pose.orientation.z = -0.3;
 				thrusters[0] = 0.4;
@@ -784,22 +792,22 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 		}
 		else
 		{
-        		//Assign the calculated values into the publisher
-        		odom.twist.twist.linear.x =  currentPosition.pose.position.x;
-        		odom.twist.twist.linear.y =  currentPosition.pose.position.y;
-        		odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-        		odom.twist.twist.angular.x = 0; //roll;
-        		odom.twist.twist.angular.y = 0; //pitch;
-        		odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-        		for (int i=0; i<36; i++)
-        		{
-        			odom.twist.covariance[i]=0;
-        			odom.pose.covariance[i]=0;
-        		}
-        		pub_vel.publish(odom);			
+			//Assign the calculated values into the publisher
+			odom.twist.twist.linear.x =  currentPosition.pose.position.x;
+			odom.twist.twist.linear.y =  currentPosition.pose.position.y;
+			odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+			odom.twist.twist.angular.x = 0; //roll;
+			odom.twist.twist.angular.y = 0; //pitch;
+			odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+			for (int i=0; i<36; i++)
+			{
+				odom.twist.covariance[i]=0;
+				odom.pose.covariance[i]=0;
+			}
+			pub_vel.publish(odom);			
 		}
 	}
-	else //Arm control
+	/*else //Arm control
 	{
 		//SpaceNav X-axis -> Robot X-axis
 		if ((twistValue->linear.x <= 200) and (twistValue->linear.x >= -200))
@@ -926,15 +934,17 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			send_joints[4] = -0.05;		
 
 		robot->setJointVelocity(send_joints);
-	}
+	}*/
 
 	// DEBUG AREA: print hand position and command to send to UWSim
 	if (DEBUG_sub_spacenav)
 	{
-		cout << "Joystick values: (" << twistValue->linear.x << ", " << twistValue->linear.y << \
+		cout << "SpaceNav values: (" << twistValue->linear.x << ", " << twistValue->linear.y << \
 				", " << twistValue->linear.z << " :: " << twistValue->angular.z << ")" << endl;
+		cout << "Thrusters values: (" << thrusters[0] << ", " << thrusters[1] << ", " << thrusters[2] <<\
+				", " << thrusters[3] << " , " << thrusters[4] << ")" << endl;
 		cout << "gripperRotation = " << gripperRotation << ", gripperApperture = " << gripperApperture \
-			 << ", robotControl = " << robotControl << endl;
+			 << ", robotControl = " << (int) userControlRequest.data << endl;
 
 	}
 }

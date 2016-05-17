@@ -31,8 +31,8 @@
 #define DEBUG_sub_waypoint	0
 #define DEBUG_sub_hand 		0
 #define DEBUG_sub_leap 		0
-#define DEBUG_sub_spacenav	1
-#define DEBUG_sub_joystick	0
+#define DEBUG_sub_spacenav	0
+#define DEBUG_sub_joystick	1
 
 //Acceleration or velocities
 #define accelerations		1
@@ -40,8 +40,8 @@
 
 //Device to be used
 #define leapMotionDev		0		//SimulatedIAUV.cpp should be changed when LeapMotion is used
-#define joystickDev			0
-#define spaceMouseDev		1
+#define joystickDev			1
+#define spaceMouseDev		0
 
 
 using namespace std;

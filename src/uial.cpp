@@ -60,19 +60,22 @@ Uial::Uial()
 	previousPosition.pose.position		= p0;
 	previousPosition.pose.orientation	= q0;
 	userControlRequest.data				= false;
+	armControlRequest.data				= false;
 	handIsOpen 							= false;
 	rotationMode 						= false;
 	selectWaypoint 						= false;
 	robotStopped						= false;
 	rightHand							= false;
 	moving								= false;
-	robotControl						= true;		//Selects the robot control or arm control
+	robotControl						= true;		//Selects robot control or arm control
 	numWaypoint 						= 1;
 	gripperApperture					= 0;
 	gripperRotation						= 0;
 
-	for (int i=0; i<=num_sensors+1; i++)
+	for (int i=0; i<=num_sensors; i++)
 		safetyMeasureAlarm.data.push_back(0);
+	for (int i=0; i<2; i++)
+		userControlAlarm.data.push_back(0);
 
 	listener = new (tf::TransformListener);
 
@@ -83,6 +86,7 @@ Uial::Uial()
         	pub_acc = nh.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
 
 	pub_userControlRequest = nh.advertise<std_msgs::Bool>("userControlRequest", 1);
+	pub_armControlRequest = nh.advertise<std_msgs::Bool>("armControlRequest", 1);
 
 	//Subscriber initialization (device to be used)
 	if (leapMotionDev)
@@ -100,12 +104,14 @@ Uial::Uial()
 	
 	//Subscriber initialization (sensors)
 	sub_odom = nh.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
-	sub_safetyMeasures = nh.subscribe<std_msgs::Int8MultiArray>("safetyMeasures", 1, &Uial::safetyMeasuresCallback, this);
+	sub_safetyMeasures = nh.subscribe<std_msgs::Int8MultiArray>("safetyMeasuresAlarm", 1, &Uial::safetyMeasuresCallback, this);
+	sub_userControl = nh.subscribe<std_msgs::Int8MultiArray>("userControlAlarm", 1, &Uial::userControlCallback, this);
 	
 	//Arm control
 	robot = new ARM5Arm(nh, "uwsim/joint_state", "uwsim/joint_state_command");
 
-	lastPress = ros::Time::now();
+	lastPressUserControl = ros::Time::now();
+	lastPressArmControl = ros::Time::now();
 }
 
 Uial::~Uial()
@@ -115,15 +121,24 @@ Uial::~Uial()
 
 void Uial::safetyMeasuresCallback(const std_msgs::Int8MultiArray::ConstPtr& msg)
 {
-	for (int i=0; i<=num_sensors+1; i++)
+	for (int i=0; i<=num_sensors; i++)
 		safetyMeasureAlarm.data[i] = msg->data[i];
+}
+
+
+void Uial::userControlCallback(const std_msgs::Int8MultiArray::ConstPtr& msg)
+{
+	for (int i=0; i<2; i++)
+		userControlAlarm.data[i] = msg->data[i];
+
+	cout << "userControlCallback: [" << (int) userControlAlarm.data[0] << ", " << (int) userControlAlarm.data[1] << "]" << endl;
 }
 
 
 void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
 {
-	ros::Time currentPress = ros::Time::now();
-	ros::Duration difTime = currentPress - lastPress;
+	ros::Time currentPressUserControl = ros::Time::now();
+	ros::Duration difTime = currentPressUserControl - lastPressUserControl;
 	if (difTime.toSec() > 0.5)
 	{
 		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
@@ -143,7 +158,7 @@ void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavBut
 		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 1)) 
 		{
 			userControlRequest.data = !userControlRequest.data;
-			lastPress = currentPress;
+			lastPressUserControl = currentPressUserControl;
 		}
 		pub_userControlRequest.publish(userControlRequest);
 	}
@@ -961,14 +976,24 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	vpColVector current_joints(5), send_joints(5);
 
 	//Check if the user press the userControlRequest button
-	ros::Time currentPress = ros::Time::now();
-	ros::Duration difTime = currentPress - lastPress;
-	if ((difTime.toSec() > 0.5) and (joystick->buttons[0] == 1))
+	ros::Time currentPressUserControl = ros::Time::now();
+	ros::Duration difTimeUserControl = currentPressUserControl - lastPressUserControl;
+	if ((difTimeUserControl.toSec() > 0.5) and (joystick->buttons[0] == 1))
 	{
 		userControlRequest.data = !userControlRequest.data;
-		lastPress = currentPress;
+		lastPressUserControl = currentPressUserControl;
 	}
 	pub_userControlRequest.publish(userControlRequest);
+
+	//Check if the user press the armControlRequest button
+	ros::Time currentPressArmControl = ros::Time::now();
+	ros::Duration difTimeArmControl = currentPressArmControl - lastPressArmControl;
+	if ((difTimeArmControl.toSec() > 0.5) and (joystick->buttons[1] == 1))
+	{
+		armControlRequest.data = !armControlRequest.data;
+		lastPressArmControl = currentPressArmControl;
+	}
+	pub_armControlRequest.publish(armControlRequest);
 
 
 	//Check for the joystick movements
@@ -1253,10 +1278,12 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 				", " << thrusters[3] << " , " << thrusters[4] << ")" << endl;
 		cout << "sensorPressureAlarm: " << (int) safetyMeasureAlarm.data[1] << ". sensorRangeAlarm: " << (int) safetyMeasureAlarm.data[2] << endl;
 		cout << "safetyMeasureAlarm: [";
-		for (int i=0; i<=num_sensors+1; i++)
+		for (int i=0; i<=num_sensors; i++)
 			cout << (int) safetyMeasureAlarm.data[i] << ",";
 		cout << "]" << endl;
+		cout << "userControlAlarm: [" << (int) userControlAlarm.data[0] << ", " << (int) userControlAlarm.data[1] << "]" << endl;
 		cout << "userControlRequest: " << (int) userControlRequest.data << endl;
+		cout << "armControlRequest: " << (int) armControlRequest.data << endl;
 	}
 }
 

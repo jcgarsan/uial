@@ -21,8 +21,6 @@
 #include <visp/vpHomogeneousMatrix.h>
 #include <cmath>  
 
-#define TOPIC  "/dataNavigator"
-
 #define pressureThreshold	0.5
 #define rangeThreshold 		1.0
 #define num_sensors			2		// 0 = is there an alarm?, 1 = surface, 2 = seafloor
@@ -118,6 +116,7 @@ Uial::~Uial()
 {
 	//Destructor
 }
+
 
 void Uial::safetyMeasuresCallback(const std_msgs::Int8MultiArray::ConstPtr& msg)
 {

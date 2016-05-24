@@ -93,6 +93,7 @@ class Uial
 
 		ros::Publisher  pub_vel;
 		ros::Publisher  pub_acc;
+		ros::Publisher	pub_arm;
 		ros::Publisher  pub_safety;
 		ros::Publisher	pub_userControlRequest;
 		ros::Publisher	pub_armControlRequest;

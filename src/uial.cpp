@@ -83,6 +83,7 @@ Uial::Uial()
 	else
         	pub_acc = nh.advertise<std_msgs::Float64MultiArray>("g500/thrusters_input", 1);
 
+   	pub_arm = nh.advertise<std_msgs::Float64MultiArray>("g500/arm_input", 1);
 	pub_userControlRequest = nh.advertise<std_msgs::Bool>("userControlRequest", 1);
 	pub_armControlRequest = nh.advertise<std_msgs::Bool>("armControlRequest", 1);
 
@@ -968,9 +969,9 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 {
 	int num;
 	double roll, pitch, yaw;
-	double thrusters[5];
+	double thrusters[5], armInput[3];
 	sensor_msgs::JointState js;
-	std_msgs::Float64MultiArray thrustersMsg;
+	std_msgs::Float64MultiArray thrustersMsg, armMsg;
 	nav_msgs::Odometry odom;
 	vpColVector current_joints(5), send_joints(5);
 
@@ -994,17 +995,24 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 	}
 	pub_armControlRequest.publish(armControlRequest);
 
-
-	//Check for the joystick movements
+	//Clear arrays
 	for (int i=0; i<5; i++)
 		thrusters[i] = 0.0;
 	thrustersMsg.data.clear();
+
+	for (int i=0; i<3; i++)
+		armInput[0]	= 0.0;
+
 	
+	//Check for the joystick movements
 	if ((robotControl) and (userControlRequest.data))
 	{
 		//joystick X-axis -> Robot X-axis
 		if ((joystick->axes[0] <= 0.4) and (joystick->axes[0] >= -0.4))
+		{
 			currentPosition.pose.position.x = 0.0;
+			armInput[0] = 0.0;
+		}
 		else
 		{
 			if (joystick->axes[0] > 0.4)
@@ -1014,6 +1022,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 				else  //(joystick->axes[0] >= 0.7)
 					currentPosition.pose.position.x = 0.6;
 				thrusters[4] = 0.7;
+				armInput[0]	 = 0.3;
 			}
 			else
 			{
@@ -1022,6 +1031,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 				else  //(joystick->axes[0] <= -0.7)
 					currentPosition.pose.position.x = -0.6;
 				thrusters[4] = -0.7;
+				armInput[0]	 = -0.3;
 			}
 		}
 		//joystick Y-axis (lever) -> Robot Y-axis
@@ -1068,7 +1078,10 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		}
 		//joystick Z-axis -> Robot Z-axis
 		if ((joystick->axes[1] <= 0.4) and (joystick->axes[1] >= -0.4))
+		{
 			currentPosition.pose.position.y = 0.0;
+			armInput[2] = 0.0;
+		}
 		else
 		{
 			if (joystick->axes[1] > 0.4)
@@ -1079,6 +1092,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 						currentPosition.pose.position.y = -0.6;
 					thrusters[0] = 0.7;
 					thrusters[1] = 0.7;
+					armInput[2]	 = 0.3;
 			}
 			else
 			{
@@ -1088,6 +1102,7 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 					currentPosition.pose.position.y = 0.6;
 				thrusters[0] = -0.7;
 				thrusters[1] = -0.7;
+				armInput[2]	 = -0.3;
 			}
 				
 			if ((int) safetyMeasureAlarm.data[1] == 1)
@@ -1098,7 +1113,10 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		
 		//Rotation
 		if ((joystick->axes[2] <= 0.5) and (joystick->axes[2] >= -0.5))
+		{
 			currentPosition.pose.orientation.z = 0.0;
+			armInput[1] = 0.0;
+		}
 		else
 		{
 			if (joystick->axes[2] > 0.5)
@@ -1106,36 +1124,47 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 				currentPosition.pose.orientation.z = 0.3;
 				thrusters[0] = -0.4;
 				thrusters[1] = 0.4;
+				armInput[1]	 = 0.3;
 			}
 			else
 			{
 				currentPosition.pose.orientation.z = -0.3;
 				thrusters[0] = 0.4;
 				thrusters[1] = -0.4;
+				armInput[1]	 = -0.3;
 			}
 		}
 
-		if (accelerations)
+		if (!armControlRequest.data)
 		{
-			for (int i=0; i<5; i++)
-				thrustersMsg.data.push_back(thrusters[i]);
-			pub_acc.publish(thrustersMsg);
+			if (accelerations)
+			{
+				for (int i=0; i<5; i++)
+					thrustersMsg.data.push_back(thrusters[i]);
+				pub_acc.publish(thrustersMsg);
+			}
+			else
+			{
+				//Assign the calculated values into the publisher
+				odom.twist.twist.linear.x =  currentPosition.pose.position.y;
+				odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+				odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+				odom.twist.twist.angular.x = 0; //roll;
+				odom.twist.twist.angular.y = 0; //pitch;
+				odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+				for (int i=0; i<36; i++)
+				{
+					odom.twist.covariance[i]=0;
+					odom.pose.covariance[i]=0;
+				}
+				pub_vel.publish(odom);
+			}
 		}
 		else
-		{
-			//Assign the calculated values into the publisher
-			odom.twist.twist.linear.x =  currentPosition.pose.position.y;
-			odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-			odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-			odom.twist.twist.angular.x = 0; //roll;
-			odom.twist.twist.angular.y = 0; //pitch;
-			odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-			for (int i=0; i<36; i++)
-			{
-				odom.twist.covariance[i]=0;
-				odom.pose.covariance[i]=0;
-			}
-			pub_vel.publish(odom);
+		{		
+			for (int i=0; i<3; i++)
+				armMsg.data.push_back(armInput[i]);
+			pub_arm.publish(armMsg);
 		}
 	}
 /*	else //Arm control

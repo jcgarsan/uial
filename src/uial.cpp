@@ -1018,20 +1018,30 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 			if (joystick->axes[0] > 0.4)
 			{
 				if (joystick->axes[0] < 0.7)
-						currentPosition.pose.position.x = 0.3;
+				{
+					currentPosition.pose.position.x = 0.3;
+					armInput[0]	= 0.05;						
+				}
 				else  //(joystick->axes[0] >= 0.7)
+				{
 					currentPosition.pose.position.x = 0.6;
+					armInput[0]	= 0.2;
+				}
 				thrusters[4] = 0.7;
-				armInput[0]	 = 0.3;
 			}
 			else
 			{
 				if (joystick->axes[0] > -0.7)
-						currentPosition.pose.position.x = -0.3;
+				{
+					currentPosition.pose.position.x = -0.3;
+					armInput[0] = -0.05;
+				}
 				else  //(joystick->axes[0] <= -0.7)
+				{
 					currentPosition.pose.position.x = -0.6;
+					armInput[0]	= -0.2;
+				}
 				thrusters[4] = -0.7;
-				armInput[0]	 = -0.3;
 			}
 		}
 		//joystick Y-axis (lever) -> Robot Y-axis
@@ -1086,23 +1096,33 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		{
 			if (joystick->axes[1] > 0.4)
 			{
-					if (joystick->axes[1] < 0.7)
-						currentPosition.pose.position.y = -0.3;
-					else
-						currentPosition.pose.position.y = -0.6;
-					thrusters[0] = 0.7;
-					thrusters[1] = 0.7;
-					armInput[2]	 = 0.3;
+				if (joystick->axes[1] < 0.7)
+				{
+					currentPosition.pose.position.y = -0.3;
+					armInput[2]	= 0.05;
+				}
+				else
+				{
+					currentPosition.pose.position.y = -0.6;
+					armInput[0]	= 0.2;
+				}
+				thrusters[0] = 0.7;
+				thrusters[1] = 0.7;
 			}
 			else
 			{
 				if (joystick->axes[1] > -0.7)
-						currentPosition.pose.position.y = 0.3;
+				{
+					currentPosition.pose.position.y = 0.3;
+					armInput[2]	= 0.05;
+				}
 				else
+				{
 					currentPosition.pose.position.y = 0.6;
+					armInput[2]	= -0.2;
+				}
 				thrusters[0] = -0.7;
 				thrusters[1] = -0.7;
-				armInput[2]	 = -0.3;
 			}
 				
 			if ((int) safetyMeasureAlarm.data[1] == 1)
@@ -1124,14 +1144,14 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 				currentPosition.pose.orientation.z = 0.3;
 				thrusters[0] = -0.4;
 				thrusters[1] = 0.4;
-				armInput[1]	 = 0.3;
+				armInput[1]	 = 0.1;
 			}
 			else
 			{
 				currentPosition.pose.orientation.z = -0.3;
 				thrusters[0] = 0.4;
 				thrusters[1] = -0.4;
-				armInput[1]	 = -0.3;
+				armInput[1]	 = -0.1;
 			}
 		}
 

@@ -30,7 +30,8 @@
 #define DEBUG_sub_hand 		0
 #define DEBUG_sub_leap 		0
 #define DEBUG_sub_spacenav	0
-#define DEBUG_sub_joystick	1
+#define DEBUG_sub_joystick	0
+#define DEBUG_sub_gamepad	1
 
 //Acceleration or velocities
 #define accelerations		1
@@ -38,8 +39,9 @@
 
 //Device to be used
 #define leapMotionDev		0		//SimulatedIAUV.cpp should be changed when LeapMotion is used
-#define joystickDev			1
+#define joystickDev			0
 #define spaceMouseDev		0
+#define gamepadDev			1
 
 
 using namespace std;
@@ -93,13 +95,15 @@ Uial::Uial()
         	sub_hand = nh.subscribe<sensor_msgs::JointState>("leap_tracker/joint_state_out", 1, &Uial::leapHandCallback, this);
         	sub_leap = nh.subscribe<geometry_msgs::PoseStamped>("leap_tracker/pose_stamped_out", 1, &Uial::leapCallback, this);
 	}
-	if (joystickDev)
-			sub_joystick = nh.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::joystickCallback, this); 
 	if (spaceMouseDev)
 	{
 			sub_spacenav 		= nh.subscribe<geometry_msgs::Twist>("spacenav/twist", 1, &Uial::spacenavCallback, this);
 			sub_spacenavButtons = nh.subscribe<sensor_msgs::Joy>("spacenav/joy", 1, &Uial::spacenavButtonsCallback, this);
 	}
+	if (joystickDev)
+			sub_joystick = nh.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::joystickCallback, this); 
+	if (gamepadDev)
+			sub_gamepad = nh.subscribe<sensor_msgs::Joy>("joystick_out", 1, &Uial::gamepadCallback, this); 
 	
 	//Subscriber initialization (sensors)
 	sub_odom = nh.subscribe<nav_msgs::Odometry>("uwsim/girona500_odom_RAUVI", 1, &Uial::odomCallback, this);
@@ -1334,6 +1338,252 @@ void Uial::joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick)
 		cout << "armControlRequest: " << (int) armControlRequest.data << endl;
 	}
 }
+
+
+void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
+{
+	int num;
+	double roll, pitch, yaw;
+	double thrusters[5], armInput[3];
+	sensor_msgs::JointState js;
+	std_msgs::Float64MultiArray thrustersMsg, armMsg;
+	nav_msgs::Odometry odom;
+	vpColVector current_joints(5), send_joints(5);
+
+	//Check if the user press the userControlRequest button
+	ros::Time currentPressUserControl = ros::Time::now();
+	ros::Duration difTimeUserControl = currentPressUserControl - lastPressUserControl;
+	if ((difTimeUserControl.toSec() > 0.5) and (gamepad->buttons[8] == 1))
+	{
+		userControlRequest.data = !userControlRequest.data;
+		lastPressUserControl = currentPressUserControl;
+	}
+	pub_userControlRequest.publish(userControlRequest);
+
+	//Check if the user press the armControlRequest button
+	ros::Time currentPressArmControl = ros::Time::now();
+	ros::Duration difTimeArmControl = currentPressArmControl - lastPressArmControl;
+	if ((difTimeArmControl.toSec() > 0.5) and (gamepad->buttons[7] == 1))
+	{
+		armControlRequest.data = !armControlRequest.data;
+		lastPressArmControl = currentPressArmControl;
+	}
+	pub_armControlRequest.publish(armControlRequest);
+
+	//Clear arrays
+	for (int i=0; i<5; i++)
+		thrusters[i] = 0.0;
+	thrustersMsg.data.clear();
+
+	for (int i=0; i<3; i++)
+		armInput[0]	= 0.0;
+
+	
+	//Check for the gamepad movements
+	if ((robotControl) and (userControlRequest.data))
+	{
+		//gamepad X-axis -> Robot X-axis
+		if ((gamepad->axes[0] <= 0.4) and (gamepad->axes[0] >= -0.4))
+		{
+			currentPosition.pose.position.x = 0.0;
+			armInput[0] = 0.0;
+		}
+		else
+		{
+			if (gamepad->axes[0] > 0.4)
+			{
+				if (gamepad->axes[0] < 0.7)
+				{
+					currentPosition.pose.position.x = 0.3;
+					armInput[0]	= 0.05;						
+				}
+				else  //(gamepad->axes[0] >= 0.7)
+				{
+					currentPosition.pose.position.x = 0.6;
+					armInput[0]	= 0.2;
+				}
+				thrusters[4] = 0.7;
+			}
+			else
+			{
+				if (gamepad->axes[0] > -0.7)
+				{
+					currentPosition.pose.position.x = -0.3;
+					armInput[0] = -0.05;
+				}
+				else  //(joystick->axes[0] <= -0.7)
+				{
+					currentPosition.pose.position.x = -0.6;
+					armInput[0]	= -0.2;
+				}
+				thrusters[4] = -0.7;
+			}
+		}
+		//gamepad frontal left lower push button (go down)
+		if (gamepad->axes[2] <= -0.5)
+			currentPosition.pose.position.z = 0.0;
+		else
+		{
+			//Range sensor
+			if ((int) safetyMeasureAlarm.data[2] == 0)
+			{
+				if (gamepad->axes[2] > 0.0)
+					currentPosition.pose.position.z = 0.3;
+				else
+					currentPosition.pose.position.z = 0.6;
+				thrusters[2] = -0.7;
+				thrusters[3] = -0.7;
+			}
+			else
+			{	//Moves the robot up when it is close to the seafloor
+				thrusters[2] = 0.7;
+				thrusters[3] = 0.7;
+			}
+		}
+		//gamepad frontal right lower push button (go up)
+		if (gamepad->axes[5] <= -0.5)
+			currentPosition.pose.position.z = 0.0;
+		else
+		{
+			//Pressure sensor
+			if ((int) safetyMeasureAlarm.data[1] == 0)
+			{
+				if (gamepad->axes[5] > 0.0)
+						currentPosition.pose.position.z = -0.3;
+				else
+					currentPosition.pose.position.z = -0.6;
+				thrusters[2] = 0.7;
+				thrusters[3] = 0.7;
+			}
+			else
+			{	//Moves the robot down when it is close on the surface
+				thrusters[2] = -0.7;
+				thrusters[3] = -0.7;
+			}
+		}
+		//joystick Z-axis -> Robot Z-axis
+		if ((gamepad->axes[1] <= 0.4) and (gamepad->axes[1] >= -0.4))
+		{
+			currentPosition.pose.position.y = 0.0;
+			armInput[2] = 0.0;
+		}
+		else
+		{
+			if (gamepad->axes[1] > 0.4)
+			{
+				if (gamepad->axes[1] < 0.7)
+				{
+					currentPosition.pose.position.y = -0.3;
+					armInput[2]	= 0.05;
+				}
+				else
+				{
+					currentPosition.pose.position.y = -0.6;
+					armInput[0]	= 0.2;
+				}
+				thrusters[0] = 0.7;
+				thrusters[1] = 0.7;
+			}
+			else
+			{
+				if (gamepad->axes[1] > -0.7)
+				{
+					currentPosition.pose.position.y = 0.3;
+					armInput[2]	= 0.05;
+				}
+				else
+				{
+					currentPosition.pose.position.y = 0.6;
+					armInput[2]	= -0.2;
+				}
+				thrusters[0] = -0.7;
+				thrusters[1] = -0.7;
+			}
+				
+			if ((int) safetyMeasureAlarm.data[1] == 1)
+				cout << "Alarm: robot on surface." << endl;
+			if ((int) safetyMeasureAlarm.data[2] == 1)
+				cout << "Alarm: robot on seafloor." << endl;
+		}
+		
+		//Rotation
+		if ((gamepad->buttons[4] == 0) and (gamepad->buttons[5] == 0))
+		{
+			currentPosition.pose.orientation.z = 0.0;
+			armInput[1] = 0.0;
+		}
+		else
+		{
+			if (gamepad->buttons[4] == 1)
+			{
+				currentPosition.pose.orientation.z = -0.3;
+				thrusters[0] = 0.4;
+				thrusters[1] = -0.4;
+				armInput[1]	 = 0.1;
+			}
+			if (gamepad->buttons[5] == 1)
+			{
+				currentPosition.pose.orientation.z = 0.3;
+				thrusters[0] = -0.4;
+				thrusters[1] = 0.4;
+				armInput[1]	 = -0.1;
+			}
+		}
+
+		if (!armControlRequest.data)
+		{
+			if (accelerations)
+			{
+				for (int i=0; i<5; i++)
+					thrustersMsg.data.push_back(thrusters[i]);
+				pub_acc.publish(thrustersMsg);
+			}
+			else
+			{
+				//Assign the calculated values into the publisher
+				odom.twist.twist.linear.x =  currentPosition.pose.position.y;
+				odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+				odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+				odom.twist.twist.angular.x = 0; //roll;
+				odom.twist.twist.angular.y = 0; //pitch;
+				odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+				for (int i=0; i<36; i++)
+				{
+					odom.twist.covariance[i]=0;
+					odom.pose.covariance[i]=0;
+				}
+				pub_vel.publish(odom);
+			}
+		}
+		else
+		{		
+			for (int i=0; i<3; i++)
+				armMsg.data.push_back(armInput[i]);
+			pub_arm.publish(armMsg);
+		}
+	}
+
+
+	// DEBUG AREA: print hand position and command to send to UWSim
+	if (DEBUG_sub_gamepad)
+	{
+		cout << "Accelerations activated: " << accelerations << endl;
+		cout << "Gamepad values for vehicle: (" << gamepad->axes[0] << ", " << gamepad->axes[1] <<  \
+		" :: " << gamepad->axes[2] << ", " << gamepad->axes[5] << ")" << endl;
+		cout << "Gamepad values for vehicle: (" << gamepad->axes[3] << ", " << gamepad->axes[4]  << ")" << endl;
+		cout << "thrusters values: (" << thrusters[0] << ", " << thrusters[1] << ", " << thrusters[2] <<\
+				", " << thrusters[3] << " , " << thrusters[4] << ")" << endl;
+		cout << "sensorPressureAlarm: " << (int) safetyMeasureAlarm.data[1] << ". sensorRangeAlarm: " << (int) safetyMeasureAlarm.data[2] << endl;
+		cout << "safetyMeasureAlarm: [";
+		for (int i=0; i<=num_sensors; i++)
+			cout << (int) safetyMeasureAlarm.data[i] << ",";
+		cout << "]" << endl;
+		cout << "userControlAlarm: [" << (int) userControlAlarm.data[0] << ", " << (int) userControlAlarm.data[1] << "]" << endl;
+		cout << "userControlRequest: " << (int) userControlRequest.data << endl;
+		cout << "armControlRequest: " << (int) armControlRequest.data << endl;
+	}
+}
+
 
 
 int main(int argc, char **argv)

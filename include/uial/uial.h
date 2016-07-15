@@ -79,6 +79,7 @@ class Uial
 		void spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons);
 		void spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue);
 		void joystickCallback(const sensor_msgs::Joy::ConstPtr& joystick);
+		void gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad);
 		void safetyMeasuresCallback(const std_msgs::Int8MultiArray::ConstPtr& msg);
 		void userControlCallback(const std_msgs::Int8MultiArray::ConstPtr& msg);
 
@@ -104,6 +105,7 @@ class Uial
 		ros::Subscriber sub_spacenav;
 		ros::Subscriber sub_spacenavButtons;
 		ros::Subscriber sub_joystick;
+		ros::Subscriber sub_gamepad;
 		ros::Subscriber sub_userControlRequest;
 		ros::Subscriber sub_safetyMeasures;
 		ros::Subscriber sub_userControl;

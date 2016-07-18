@@ -39,8 +39,8 @@
 
 //Device to be used
 #define leapMotionDev		0		//SimulatedIAUV.cpp should be changed when LeapMotion is used
-#define joystickDev			0
 #define spaceMouseDev		0
+#define joystickDev			0
 #define gamepadDev			1
 
 
@@ -1382,40 +1382,26 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 	//Check for the gamepad movements
 	if ((robotControl) and (userControlRequest.data))
 	{
+		//VEHICLE
 		//gamepad X-axis -> Robot X-axis
 		if ((gamepad->axes[0] <= 0.4) and (gamepad->axes[0] >= -0.4))
-		{
 			currentPosition.pose.position.x = 0.0;
-			armInput[0] = 0.0;
-		}
 		else
 		{
 			if (gamepad->axes[0] > 0.4)
 			{
 				if (gamepad->axes[0] < 0.7)
-				{
 					currentPosition.pose.position.x = 0.3;
-					armInput[0]	= 0.05;						
-				}
 				else  //(gamepad->axes[0] >= 0.7)
-				{
 					currentPosition.pose.position.x = 0.6;
-					armInput[0]	= 0.2;
-				}
 				thrusters[4] = 0.7;
 			}
 			else
 			{
 				if (gamepad->axes[0] > -0.7)
-				{
 					currentPosition.pose.position.x = -0.3;
-					armInput[0] = -0.05;
-				}
-				else  //(joystick->axes[0] <= -0.7)
-				{
+				else  //(gamepad->axes[0] <= -0.7)
 					currentPosition.pose.position.x = -0.6;
-					armInput[0]	= -0.2;
-				}
 				thrusters[4] = -0.7;
 			}
 		}
@@ -1461,41 +1447,26 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 				thrusters[3] = -0.7;
 			}
 		}
-		//joystick Z-axis -> Robot Z-axis
+		//gamepad Z-axis -> Robot Z-axis
 		if ((gamepad->axes[1] <= 0.4) and (gamepad->axes[1] >= -0.4))
-		{
 			currentPosition.pose.position.y = 0.0;
-			armInput[2] = 0.0;
-		}
 		else
 		{
 			if (gamepad->axes[1] > 0.4)
 			{
 				if (gamepad->axes[1] < 0.7)
-				{
 					currentPosition.pose.position.y = -0.3;
-					armInput[2]	= 0.05;
-				}
 				else
-				{
 					currentPosition.pose.position.y = -0.6;
-					armInput[0]	= 0.2;
-				}
 				thrusters[0] = 0.7;
 				thrusters[1] = 0.7;
 			}
 			else
 			{
 				if (gamepad->axes[1] > -0.7)
-				{
 					currentPosition.pose.position.y = 0.3;
-					armInput[2]	= 0.05;
-				}
 				else
-				{
 					currentPosition.pose.position.y = 0.6;
-					armInput[2]	= -0.2;
-				}
 				thrusters[0] = -0.7;
 				thrusters[1] = -0.7;
 			}
@@ -1506,12 +1477,9 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 				cout << "Alarm: robot on seafloor." << endl;
 		}
 		
-		//Rotation
+		//Robot rotation using bottom front buttons
 		if ((gamepad->buttons[4] == 0) and (gamepad->buttons[5] == 0))
-		{
 			currentPosition.pose.orientation.z = 0.0;
-			armInput[1] = 0.0;
-		}
 		else
 		{
 			if (gamepad->buttons[4] == 1)
@@ -1519,43 +1487,85 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 				currentPosition.pose.orientation.z = -0.3;
 				thrusters[0] = 0.4;
 				thrusters[1] = -0.4;
-				armInput[1]	 = 0.1;
 			}
 			if (gamepad->buttons[5] == 1)
 			{
 				currentPosition.pose.orientation.z = 0.3;
 				thrusters[0] = -0.4;
 				thrusters[1] = 0.4;
-				armInput[1]	 = -0.1;
 			}
 		}
 
-		if (!armControlRequest.data)
+		//ARM
+		if ((gamepad->axes[3] <= 0.4) and (gamepad->axes[3] >= -0.4))
+			armInput[0] = 0.0;
+		else
 		{
-			if (accelerations)
+			if (gamepad->axes[3] > 0.4)
 			{
-				for (int i=0; i<5; i++)
-					thrustersMsg.data.push_back(thrusters[i]);
-				pub_acc.publish(thrustersMsg);
+				if (gamepad->axes[3] < 0.7)
+					armInput[0]	= 0.05;
+				else  //(gamepad->axes[3] >= 0.7)
+					armInput[0]	= 0.2;
 			}
 			else
 			{
-				//Assign the calculated values into the publisher
-				odom.twist.twist.linear.x =  currentPosition.pose.position.y;
-				odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-				odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-				odom.twist.twist.angular.x = 0; //roll;
-				odom.twist.twist.angular.y = 0; //pitch;
-				odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-				for (int i=0; i<36; i++)
-				{
-					odom.twist.covariance[i]=0;
-					odom.pose.covariance[i]=0;
-				}
-				pub_vel.publish(odom);
+				if (gamepad->axes[3] > -0.7)
+					armInput[0]	= -0.05;
+				else  //(gamepad->axes[3] <= -0.7)
+					armInput[0]	= -0.2;
 			}
 		}
+		if ((gamepad->axes[4] <= 0.4) and (gamepad->axes[4] >= -0.4))
+			armInput[2]	= 0.0;
 		else
+		{
+			if (gamepad->axes[4] > 0.4)
+			{
+				if (gamepad->axes[4] < 0.7)
+					armInput[2]	= 0.05;
+				else  //(gamepad->axes[4] >= 0.7)
+					armInput[2]	= 0.2;
+			}
+			else
+			{
+				if (gamepad->axes[4] > -0.7)
+					armInput[2]	= -0.05;
+				else  //(gamepad->axes[4] <= -0.7)
+					armInput[2]	= -0.2;
+			}
+		}
+		//Button1 & Button2 controls the arm rotation
+		armInput[1]	= 0.0;
+		if (gamepad->buttons[1] == 1) //Right
+			armInput[1]	= 0.2;
+		if (gamepad->buttons[2] == 1) //Left
+			armInput[1]	= -0.2;
+
+
+		if (accelerations)
+		{
+			for (int i=0; i<5; i++)
+				thrustersMsg.data.push_back(thrusters[i]);
+			pub_acc.publish(thrustersMsg);
+		}
+		else
+		{
+			//Assign the calculated values into the publisher
+			odom.twist.twist.linear.x =  currentPosition.pose.position.y;
+			odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+			odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+			odom.twist.twist.angular.x = 0; //roll;
+			odom.twist.twist.angular.y = 0; //pitch;
+			odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+			for (int i=0; i<36; i++)
+			{
+				odom.twist.covariance[i]=0;
+				odom.pose.covariance[i]=0;
+			}
+			pub_vel.publish(odom);
+		}
+		if (armControlRequest.data)
 		{		
 			for (int i=0; i<3; i++)
 				armMsg.data.push_back(armInput[i]);
@@ -1570,9 +1580,10 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 		cout << "Accelerations activated: " << accelerations << endl;
 		cout << "Gamepad values for vehicle: (" << gamepad->axes[0] << ", " << gamepad->axes[1] <<  \
 		" :: " << gamepad->axes[2] << ", " << gamepad->axes[5] << ")" << endl;
-		cout << "Gamepad values for vehicle: (" << gamepad->axes[3] << ", " << gamepad->axes[4]  << ")" << endl;
+		cout << "Gamepad values for arm: (" << gamepad->axes[3] << ", " << gamepad->axes[4]  << ")" << endl;
 		cout << "thrusters values: (" << thrusters[0] << ", " << thrusters[1] << ", " << thrusters[2] <<\
-				", " << thrusters[3] << " , " << thrusters[4] << ")" << endl;
+				", " << thrusters[3] << ", " << thrusters[4] << ")" << endl;
+		cout << "arm values: (" << armInput[0] << ", " << armInput[1] << ", " << armInput[2] << ")" << endl;
 		cout << "sensorPressureAlarm: " << (int) safetyMeasureAlarm.data[1] << ". sensorRangeAlarm: " << (int) safetyMeasureAlarm.data[2] << endl;
 		cout << "safetyMeasureAlarm: [";
 		for (int i=0; i<=num_sensors; i++)

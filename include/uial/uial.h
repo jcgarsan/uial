@@ -56,9 +56,10 @@ class Uial
 		int handsDetected;
 		int gripperApperture;
 		int gripperRotation;
+		int userMenuSelection;
 
 		geometry_msgs::PoseStamped	waypointsList[10];
-		
+		std_msgs::Int8MultiArray	userMenuData;
 		std_msgs::Int8MultiArray	safetyMeasureAlarm;
 		std_msgs::Int8MultiArray	userControlAlarm;
 		std_msgs::Bool				userControlRequest;
@@ -66,6 +67,8 @@ class Uial
 		
 		ros::Time lastPressUserControl;
 		ros::Time lastPressArmControl;
+		ros::Time lastPressNavButton;
+		ros::Time lastPressNavDial;
 
 		ARM5Arm *robot;
 		vpHomogeneousMatrix desired_bMe, bMe;
@@ -98,6 +101,7 @@ class Uial
 		ros::Publisher  pub_safety;
 		ros::Publisher	pub_userControlRequest;
 		ros::Publisher	pub_armControlRequest;
+		ros::Publisher	pub_userMenuData;
 
 		ros::Subscriber sub_hand;
 		ros::Subscriber sub_leap;

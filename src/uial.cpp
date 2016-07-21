@@ -29,7 +29,7 @@
 #define DEBUG_sub_waypoint	0
 #define DEBUG_sub_hand 		0
 #define DEBUG_sub_leap 		0
-#define DEBUG_sub_spacenav	0
+#define DEBUG_sub_spacenav	1
 #define DEBUG_sub_joystick	0
 #define DEBUG_sub_gamepad	1
 
@@ -39,7 +39,7 @@
 
 //Device to be used
 #define leapMotionDev		0		//SimulatedIAUV.cpp should be changed when LeapMotion is used
-#define spaceMouseDev		0
+#define spaceMouseDev		1
 #define joystickDev			0
 #define gamepadDev			1
 
@@ -71,11 +71,14 @@ Uial::Uial()
 	numWaypoint 						= 1;
 	gripperApperture					= 0;
 	gripperRotation						= 0;
+	userMenuSelection					= 0;
 
 	for (int i=0; i<=num_sensors; i++)
 		safetyMeasureAlarm.data.push_back(0);
 	for (int i=0; i<2; i++)
 		userControlAlarm.data.push_back(0);
+	for (int i=0; i<5; i++)		//[OnOff menu, select menu, exec option, menuID, buttonID]
+		userMenuData.data.push_back(0);
 
 	listener = new (tf::TransformListener);
 
@@ -88,6 +91,7 @@ Uial::Uial()
    	pub_arm = nh.advertise<std_msgs::Float64MultiArray>("g500/arm_input", 1);
 	pub_userControlRequest = nh.advertise<std_msgs::Bool>("userControlRequest", 1);
 	pub_armControlRequest = nh.advertise<std_msgs::Bool>("armControlRequest", 1);
+	pub_userMenuData = nh.advertise<std_msgs::Int8MultiArray>("userMenuData", 1);
 
 	//Subscriber initialization (device to be used)
 	if (leapMotionDev)
@@ -115,6 +119,8 @@ Uial::Uial()
 
 	lastPressUserControl = ros::Time::now();
 	lastPressArmControl = ros::Time::now();
+	lastPressNavButton = ros::Time::now();
+	lastPressNavDial = ros::Time::now();
 }
 
 Uial::~Uial()
@@ -142,29 +148,19 @@ void Uial::userControlCallback(const std_msgs::Int8MultiArray::ConstPtr& msg)
 void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
 {
 	ros::Time currentPressUserControl = ros::Time::now();
-	ros::Duration difTime = currentPressUserControl - lastPressUserControl;
-	if (difTime.toSec() > 0.5)
+	ros::Duration difTime = currentPressUserControl - lastPressNavButton;
+	if (difTime.toSec() > 0.3)
 	{
-		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
-		{
-			if (gripperRotation < 2)
-				gripperRotation++;
-			else
-				gripperRotation = 0;
-		}
 		if ((spacenavButtons->buttons[0] == 0) and (spacenavButtons->buttons[1] == 1)) 
-		{
-			if (gripperApperture < 2)
-				gripperApperture++;
-			else
-				gripperApperture = 0;
+		{	//Display the menu
+			userMenuData.data[0] = (userMenuData.data[0] + 1) % 2;
 		}
-		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 1)) 
-		{
-			userControlRequest.data = !userControlRequest.data;
-			lastPressUserControl = currentPressUserControl;
+		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
+		{	//User selection
+			userMenuData.data[1] = (userMenuData.data[1] + 1) % 2;
 		}
-		pub_userControlRequest.publish(userControlRequest);
+		lastPressNavButton = currentPressUserControl;
+		pub_userMenuData.publish(userMenuData);
 	}
 }
 
@@ -537,152 +533,49 @@ void Uial::leapCallback(const geometry_msgs::PoseStamped::ConstPtr& posstamped)
 
 void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 {
-	int num;
-	double roll, pitch, yaw;
-	double thrusters[5];
-	sensor_msgs::JointState js;
-	std_msgs::Float64MultiArray thrustersMsg;
-	nav_msgs::Odometry odom;
-	vpColVector current_joints(5), send_joints(5);
-
-	//Check for the joystick movements
-	for (int i=0; i<5; i++)
-		thrusters[i] = 0.0;
-	thrustersMsg.data.clear();
-
-	if ((robotControl) and (userControlRequest.data))
+	ros::Time currentPressNavDial = ros::Time::now();
+	ros::Duration difTime = currentPressNavDial - lastPressNavDial;
+	if (difTime.toSec() > 0.4)
 	{
-		//SpaceNav X-axis -> Robot X-axis
-		if ((twistValue->linear.x <= 0.2) and (twistValue->linear.x >= -0.2))
-			currentPosition.pose.position.x = 0.0;
-		else
+		if (twistValue->angular.z > 0.3)
 		{
-			if (twistValue->linear.x > 0.2)
-			{
-				if (twistValue->linear.x < 0.5)
-						currentPosition.pose.position.x = 0.3;
-				else  //(twistValue->linear.x >= 200)
-					currentPosition.pose.position.x = 0.6;
-				thrusters[0] = -0.4;
-				thrusters[1] = -0.4;
-			}
-			else
-			{
-				if (twistValue->linear.x > -0.5)
-						currentPosition.pose.position.x = -0.3;
-				else  //(twistValue->linear.x <= -200)
-					currentPosition.pose.position.x = -0.6;
-				thrusters[0] = 0.4;
-				thrusters[1] = 0.4;
-			}
+			userMenuData.data[3]--;
+			if (userMenuData.data[3] < 0)
+				userMenuData.data[3] = 0;
 		}
-		//SpaceNav Y-axis -> Robot Y-axis
-		if ((twistValue->linear.y <= 0.2) and (twistValue->linear.y >= -0.2))
-			currentPosition.pose.position.y = 0.0;
-		else
+		if (twistValue->angular.z < -0.3)
 		{
-			if (twistValue->linear.y > 0.2)
-			{
-				if (twistValue->linear.y < 0.5)
-						currentPosition.pose.position.y = -0.3;
-				else
-					currentPosition.pose.position.y = -0.6;
-				thrusters[4] = -0.4;
-			}
-			else
-			{
-				if (twistValue->linear.y > -0.5)
-						currentPosition.pose.position.y = 0.3;
-				else
-					currentPosition.pose.position.y = 0.6;
-				thrusters[4] = 0.4;
-			}
-		}
-		//SpaceNav Z-axis -> Robot Z-axis
-		if ((twistValue->linear.z <= 0.2) and (twistValue->linear.z >= -0.2))
-			currentPosition.pose.position.z = 0.0;
-		else
-		{
-			if (twistValue->linear.z > 0.2)
-			{
-				if (!sensorPressureAlarm)
-				{
-					if (twistValue->linear.z < 0.5)
-						currentPosition.pose.position.z = -0.3;
-					else
-						currentPosition.pose.position.z = -0.6;
-					thrusters[2] = 0.4;
-					thrusters[3] = 0.4;
-				}
-			}
-			else if (!sensorRangeAlarm)
-			{
-				if (twistValue->linear.z > -0.5)
-						currentPosition.pose.position.z = 0.3;
-				else
-					currentPosition.pose.position.z = 0.6;
-				thrusters[2] = -0.4;
-				thrusters[3] = -0.4;
-			}
-			if (sensorRangeAlarm)
-				cout << "Alarm: robot on seafloor." << endl;
-			if (sensorPressureAlarm)
-				cout << "Alarm: robot on surface." << endl;
+			userMenuData.data[3]++;
+			if (userMenuData.data[3] > 6)
+				userMenuData.data[3] = 6;
 		}
 
-		if ((twistValue->angular.z <= 0.3) and (twistValue->angular.z >= -0.3))
-			currentPosition.pose.orientation.z = 0.0;
-		else
+		if (twistValue->linear.z < -0.3)
 		{
-			if (twistValue->angular.z > 0.3)
-			{
-				currentPosition.pose.orientation.z = -0.3;
-				thrusters[0] = 0.4;
-				thrusters[1] = -0.4;
-			}
-			else
-			{
-				currentPosition.pose.orientation.z = 0.3;
-				thrusters[0] = -0.4;
-				thrusters[1] = 0.4;
-			}
+			userMenuData.data[2]++;
+			userMenuData.data[3] = 0;
+			if (userMenuData.data[2] > 6)
+				userMenuData.data[2] = 6;
 		}
-
-		if (accelerations)
+		else if (twistValue->linear.z > 0.3)
 		{
-			for (int i=0; i<5; i++)
-				thrustersMsg.data.push_back(thrusters[i]);
-			pub_acc.publish(thrustersMsg);		
+			userMenuData.data[2]--;
+			userMenuData.data[3] = 0;
+			if (userMenuData.data[2] < 0)
+				userMenuData.data[2] = 0;
 		}
-		else
-		{
-			//Assign the calculated values into the publisher
-			odom.twist.twist.linear.x =  currentPosition.pose.position.x;
-			odom.twist.twist.linear.y =  currentPosition.pose.position.y;
-			odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-			odom.twist.twist.angular.x = 0; //roll;
-			odom.twist.twist.angular.y = 0; //pitch;
-			odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-			for (int i=0; i<36; i++)
-			{
-				odom.twist.covariance[i]=0;
-				odom.pose.covariance[i]=0;
-			}
-			pub_vel.publish(odom);			
-		}
+		lastPressNavDial = currentPressNavDial;
+		pub_userMenuData.publish(userMenuData);
 	}
-
 
 	// DEBUG AREA: print hand position and command to send to UWSim
 	if (DEBUG_sub_spacenav)
 	{
-		cout << "SpaceNav values: (" << twistValue->linear.x << ", " << twistValue->linear.y << \
-				", " << twistValue->linear.z << " :: " << twistValue->angular.z << ")" << endl;
-		cout << "Thrusters values: (" << thrusters[0] << ", " << thrusters[1] << ", " << thrusters[2] <<\
-				", " << thrusters[3] << " , " << thrusters[4] << ")" << endl;
-		cout << "gripperRotation = " << gripperRotation << ", gripperApperture = " << gripperApperture \
-			 << ", robotControl = " << (int) userControlRequest.data << endl;
-
+		cout << "SpaceNav angular value: " << twistValue->angular.z << endl;
+		cout << "SpaceNav linear  value: " << twistValue->linear.z << endl;
+		cout << "Num: " << (int) userMenuData.data[2] << endl;
+		cout << "userMenuData: [" << (int) userMenuData.data[0] << ", " << (int) userMenuData.data[1] << ", " \
+			 << (int) userMenuData.data[2] << ", " << (int) userMenuData.data[3] << ", " << (int) userMenuData.data[4] << "]" << endl;
 	}
 }
 

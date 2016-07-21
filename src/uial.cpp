@@ -15,6 +15,7 @@
 #include <iostream>
 #include <stdlib.h>
 #include <string.h>
+#include <vector>
 #include "../include/uial/uial.h"
 
 #include <visp/vpColVector.h>
@@ -43,9 +44,9 @@
 #define joystickDev			0
 #define gamepadDev			1
 
-
 using namespace std;
 
+static const int menuButtonLimits[] = {7, 5};
 
 
 Uial::Uial()
@@ -147,8 +148,8 @@ void Uial::userControlCallback(const std_msgs::Int8MultiArray::ConstPtr& msg)
 
 void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavButtons)
 {
-	ros::Time currentPressUserControl = ros::Time::now();
-	ros::Duration difTime = currentPressUserControl - lastPressNavButton;
+	ros::Time currentPressNavButton = ros::Time::now();
+	ros::Duration difTime = currentPressNavButton - lastPressNavButton;
 	if (difTime.toSec() > 0.3)
 	{
 		if ((spacenavButtons->buttons[0] == 0) and (spacenavButtons->buttons[1] == 1)) 
@@ -159,7 +160,7 @@ void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavBut
 		{	//User selection
 			userMenuData.data[1] = (userMenuData.data[1] + 1) % 2;
 		}
-		lastPressNavButton = currentPressUserControl;
+		lastPressNavButton = currentPressNavButton;
 		pub_userMenuData.publish(userMenuData);
 	}
 }
@@ -535,7 +536,9 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 {
 	ros::Time currentPressNavDial = ros::Time::now();
 	ros::Duration difTime = currentPressNavDial - lastPressNavDial;
-	if (difTime.toSec() > 0.4)
+	int numMenuAvailable = (sizeof(menuButtonLimits)/sizeof(*menuButtonLimits));
+
+	if (difTime.toSec() > 0.2)
 	{
 		if (twistValue->angular.z > 0.3)
 		{
@@ -545,17 +548,20 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 		}
 		if (twistValue->angular.z < -0.3)
 		{
-			userMenuData.data[3]++;
-			if (userMenuData.data[3] > 6)
-				userMenuData.data[3] = 6;
+			if (userMenuData.data[3] < (menuButtonLimits[userMenuData.data[2]] - 1))
+				userMenuData.data[3]++;
+			else
+				userMenuData.data[3] = menuButtonLimits[userMenuData.data[2]] - 1;
 		}
 
 		if (twistValue->linear.z < -0.3)
 		{
-			userMenuData.data[2]++;
+			
 			userMenuData.data[3] = 0;
-			if (userMenuData.data[2] > 6)
-				userMenuData.data[2] = 6;
+			if (userMenuData.data[2] < (numMenuAvailable - 1))
+				userMenuData.data[2]++;	
+			else
+				userMenuData.data[2] = numMenuAvailable - 1;
 		}
 		else if (twistValue->linear.z > 0.3)
 		{

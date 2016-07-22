@@ -46,7 +46,7 @@
 
 using namespace std;
 
-static const int menuButtonLimits[] = {7, 5};
+static const int menuButtonLimits[] = {7, 7, 7, 7, 5};
 
 
 Uial::Uial()
@@ -542,34 +542,42 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 	{
 		if (twistValue->angular.z > 0.3)
 		{
-			userMenuData.data[3]--;
-			if (userMenuData.data[3] < 0)
-				userMenuData.data[3] = 0;
+			userMenuData.data[4]--;
+			if (userMenuData.data[4] < 0)
+				userMenuData.data[4] = 0;
 		}
 		if (twistValue->angular.z < -0.3)
 		{
-			if (userMenuData.data[3] < (menuButtonLimits[userMenuData.data[2]] - 1))
-				userMenuData.data[3]++;
+			if (userMenuData.data[4] < (menuButtonLimits[userMenuData.data[3]] - 1))
+				userMenuData.data[4]++;
 			else
-				userMenuData.data[3] = menuButtonLimits[userMenuData.data[2]] - 1;
+				userMenuData.data[4] = menuButtonLimits[userMenuData.data[3]] - 1;
 		}
 
 		if (twistValue->linear.z < -0.3)
 		{
-			
-			userMenuData.data[3] = 0;
-			if (userMenuData.data[2] < (numMenuAvailable - 1))
-				userMenuData.data[2]++;	
+			if (userMenuData.data[4] == menuButtonLimits[userMenuData.data[3]] - 1)
+			{
+				userMenuData.data[1] = 1;
+				if (userMenuData.data[3] > 0)
+				{
+					userMenuData.data[3]--;
+					userMenuData.data[4] = 0;	
+				}
+			}
 			else
-				userMenuData.data[2] = numMenuAvailable - 1;
+			{
+				userMenuData.data[1] = 1;
+				userMenuData.data[4] = 0;
+				if (userMenuData.data[3] < (numMenuAvailable - 1))
+					userMenuData.data[3]++;	
+				else
+					userMenuData.data[3] = numMenuAvailable - 1;
+			}
 		}
-		else if (twistValue->linear.z > 0.3)
-		{
-			userMenuData.data[2]--;
-			userMenuData.data[3] = 0;
-			if (userMenuData.data[2] < 0)
-				userMenuData.data[2] = 0;
-		}
+		else
+			userMenuData.data[1] = 0;
+
 		lastPressNavDial = currentPressNavDial;
 		pub_userMenuData.publish(userMenuData);
 	}
@@ -579,7 +587,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 	{
 		cout << "SpaceNav angular value: " << twistValue->angular.z << endl;
 		cout << "SpaceNav linear  value: " << twistValue->linear.z << endl;
-		cout << "Num: " << (int) userMenuData.data[2] << endl;
+		//cout << "Num: " << (int) userMenuData.data[2] << endl;
 		cout << "userMenuData: [" << (int) userMenuData.data[0] << ", " << (int) userMenuData.data[1] << ", " \
 			 << (int) userMenuData.data[2] << ", " << (int) userMenuData.data[3] << ", " << (int) userMenuData.data[4] << "]" << endl;
 	}

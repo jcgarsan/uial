@@ -557,22 +557,19 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 		if (twistValue->linear.z < -0.3)
 		{
 			if (userMenuData.data[4] == menuButtonLimits[userMenuData.data[3]] - 1)
-			{
+			{	//Back to main menu
 				userMenuData.data[1] = 1;
 				if (userMenuData.data[3] > 0)
 				{
-					userMenuData.data[3]--;
+					userMenuData.data[3] = 0;
 					userMenuData.data[4] = 0;	
 				}
 			}
 			else
 			{
 				userMenuData.data[1] = 1;
+				userMenuData.data[3] = userMenuData.data[4] + 1;
 				userMenuData.data[4] = 0;
-				if (userMenuData.data[3] < (numMenuAvailable - 1))
-					userMenuData.data[3]++;	
-				else
-					userMenuData.data[3] = numMenuAvailable - 1;
 			}
 		}
 		else

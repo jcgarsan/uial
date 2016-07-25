@@ -158,7 +158,7 @@ void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavBut
 		}
 		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
 		{	//User selection
-			userMenuData.data[1] = (userMenuData.data[1] + 1) % 2;
+			userMenuData.data[2] = (userMenuData.data[2] + 1) % 2;
 		}
 		lastPressNavButton = currentPressNavButton;
 		pub_userMenuData.publish(userMenuData);

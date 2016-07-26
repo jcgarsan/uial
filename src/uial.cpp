@@ -158,8 +158,10 @@ void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavBut
 		}
 		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
 		{	//User selection
-			userMenuData.data[2] = (userMenuData.data[2] + 1) % 2;
+			userMenuData.data[2] = 1;
 		}
+		else
+			userMenuData.data[2] = 0;
 		lastPressNavButton = currentPressNavButton;
 		pub_userMenuData.publish(userMenuData);
 	}
@@ -540,6 +542,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 
 	if (difTime.toSec() > 0.2)
 	{
+		//We rotate the SpaceNav to move the button focus
 		if (twistValue->angular.z > 0.3)
 		{
 			userMenuData.data[4]--;
@@ -554,6 +557,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 				userMenuData.data[4] = menuButtonLimits[userMenuData.data[3]] - 1;
 		}
 
+		//We press the the SpaceNav to select a new menu
 		if (twistValue->linear.z < -0.3)
 		{
 			if (userMenuData.data[4] == menuButtonLimits[userMenuData.data[3]] - 1)
@@ -566,11 +570,12 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 				}
 			}
 			else
-			{
-				userMenuData.data[1] = 1;
-				userMenuData.data[3] = userMenuData.data[4] + 1;
-				userMenuData.data[4] = 0;
-			}
+				if ((userMenuData.data[4] != 4) and (userMenuData.data[4] != 5))
+				{
+					userMenuData.data[1] = 1;
+					userMenuData.data[3] = userMenuData.data[4] + 1;
+					userMenuData.data[4] = 0;
+				}
 		}
 		else
 			userMenuData.data[1] = 0;

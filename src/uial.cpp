@@ -563,7 +563,7 @@ void Uial::spacenavCallback(const geometry_msgs::Twist::ConstPtr& twistValue)
 			if (userMenuData.data[4] == menuButtonLimits[userMenuData.data[3]] - 1)
 			{	//Back to main menu
 				userMenuData.data[1] = 1;
-				if (userMenuData.data[3] > 0)
+				if (userMenuData.data[3] >= 0)
 				{
 					userMenuData.data[3] = 0;
 					userMenuData.data[4] = 0;	
@@ -894,10 +894,10 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 			//Range sensor
 			if ((int) safetyMeasureAlarm.data[2] == 0)
 			{
-				if (gamepad->axes[2] > 0.0)
-					currentPosition.pose.position.z = 0.3;
-				else
+				if (gamepad->axes[2] > 0.5)
 					currentPosition.pose.position.z = 0.6;
+				else if (gamepad->axes[2] > 0.0)
+					currentPosition.pose.position.z = 0.3;
 				thrusters[2] = -0.7;
 				thrusters[3] = -0.7;
 			}
@@ -915,10 +915,10 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 			//Pressure sensor
 			if ((int) safetyMeasureAlarm.data[1] == 0)
 			{
-				if (gamepad->axes[5] > 0.0)
-						currentPosition.pose.position.z = -0.3;
-				else
-					currentPosition.pose.position.z = -0.6;
+				if (gamepad->axes[5] > 0.5)
+						currentPosition.pose.position.z = -0.6;
+				else if (gamepad->axes[5] > 0.0)
+					currentPosition.pose.position.z = -0.3;
 				thrusters[2] = 0.7;
 				thrusters[3] = 0.7;
 			}

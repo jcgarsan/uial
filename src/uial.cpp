@@ -46,7 +46,7 @@
 
 using namespace std;
 
-static const int menuButtonLimits[] = {7, 7, 7, 7, 5};
+static const int menuButtonLimits[] = {7, 4, 5, 2, 5};
 
 
 Uial::Uial()

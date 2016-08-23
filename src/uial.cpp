@@ -861,9 +861,8 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 
 	
 	//Check for the gamepad movements
-	if ((robotControl) and (userControlRequest.data))
+	if (userControlRequest.data)	//VEHICLE
 	{
-		//VEHICLE
 		//gamepad X-axis -> Robot X-axis
 		if ((gamepad->axes[0] <= 0.4) and (gamepad->axes[0] >= -0.4))
 			currentPosition.pose.position.x = 0.0;
@@ -977,7 +976,32 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 			}
 		}
 
-		//ARM
+		if (accelerations)
+		{
+			for (int i=0; i<5; i++)
+				thrustersMsg.data.push_back(thrusters[i]);
+			pub_acc.publish(thrustersMsg);
+		}
+		else
+		{
+			//Assign the calculated values into the publisher
+			odom.twist.twist.linear.x =  currentPosition.pose.position.y;
+			odom.twist.twist.linear.y =  currentPosition.pose.position.x;
+			odom.twist.twist.linear.z =  currentPosition.pose.position.z;
+			odom.twist.twist.angular.x = 0; //roll;
+			odom.twist.twist.angular.y = 0; //pitch;
+			odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
+			for (int i=0; i<36; i++)
+			{
+				odom.twist.covariance[i]=0;
+				odom.pose.covariance[i]=0;
+			}
+			pub_vel.publish(odom);
+		}
+	}
+
+	if (armControlRequest.data)		//ARM
+	{
 		if ((gamepad->axes[3] <= 0.4) and (gamepad->axes[3] >= -0.4))
 			armInput[0] = 0.0;
 		else
@@ -1024,28 +1048,6 @@ void Uial::gamepadCallback(const sensor_msgs::Joy::ConstPtr& gamepad)
 			armInput[1]	= -0.2;
 
 
-		if (accelerations)
-		{
-			for (int i=0; i<5; i++)
-				thrustersMsg.data.push_back(thrusters[i]);
-			pub_acc.publish(thrustersMsg);
-		}
-		else
-		{
-			//Assign the calculated values into the publisher
-			odom.twist.twist.linear.x =  currentPosition.pose.position.y;
-			odom.twist.twist.linear.y =  currentPosition.pose.position.x;
-			odom.twist.twist.linear.z =  currentPosition.pose.position.z;
-			odom.twist.twist.angular.x = 0; //roll;
-			odom.twist.twist.angular.y = 0; //pitch;
-			odom.twist.twist.angular.z = currentPosition.pose.orientation.z; //yaw
-			for (int i=0; i<36; i++)
-			{
-				odom.twist.covariance[i]=0;
-				odom.pose.covariance[i]=0;
-			}
-			pub_vel.publish(odom);
-		}
 		if (armControlRequest.data)
 		{		
 			for (int i=0; i<3; i++)

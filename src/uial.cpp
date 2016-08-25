@@ -159,6 +159,7 @@ void Uial::spacenavButtonsCallback(const sensor_msgs::Joy::ConstPtr& spacenavBut
 		if ((spacenavButtons->buttons[0] == 1) and (spacenavButtons->buttons[1] == 0)) 
 		{	//User selection
 			userMenuData.data[2] = 1;
+			userMenuData.data[0] = 0;
 		}
 		else
 			userMenuData.data[2] = 0;
